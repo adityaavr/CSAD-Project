@@ -46,7 +46,7 @@ const AdditionalDetails = () => {
         <div className="flex flex-wrap justify-center items-center h-screen bg-base-200">
             <div className="card w-full max-w-md mx-auto shadow-2xl bg-base-100">
                 <div className="card-body">
-                    <h2 className="card-title text-center">Additional Details</h2>
+                    <h2 className="card-title text-center">Tell us more about you</h2>
                     {imageUrl && (
                         <div className="flex justify-center mt-4">
                             <div className="avatar">

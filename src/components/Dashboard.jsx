@@ -72,8 +72,21 @@ const Dashboard = () => {
 
                 {/* Main Content */}
                 <div className="p-4">
-                    <h1 className="text-xl font-bold mb-4">Welcome to Planthara</h1>
-                    <Link to="/create-project" className="btn btn-primary mb-4">Create New Project</Link>
+                    {/*<h1 className="text-xl font-bold mb-4">Welcome to Planthara</h1>*/}
+                    {/* You can open the modal using document.getElementById('ID').showModal() method */}
+                    <button className="btn btn-primary" onClick={()=>document.getElementById('my_modal_4').showModal()}>Create Project</button>
+                    <dialog id="my_modal_4" className="modal">
+                        <div className="modal-box w-11/12 max-w-5xl">
+                            <h3 className="font-bold text-lg">Welcome to your new project !</h3>
+                            <p className="py-4">Click the button below to close</p>
+                            <div className="modal-action">
+                                <form method="dialog">
+                                    {/* if there is a button, it will close the modal */}
+                                    <button className="btn">Close</button>
+                                </form>
+                            </div>
+                        </div>
+                    </dialog>
                     {projects.length > 0 ? (
                         projects.map(project => (
                             <div key={project.id} className="card bg-base-200 p-4 mb-4">
@@ -91,8 +104,9 @@ const Dashboard = () => {
             <div className="drawer-side">
                 <label htmlFor="dashboard-sidebar" className="drawer-overlay"></label>
                 <ul className="menu p-4 overflow-y-auto w-80 h-full bg-base-300">
-                    <li><Link to="/">Projects</Link></li>
+                    <li><Link to="/projects">Projects</Link></li>
                     <li><Link to="/ganttchart">Gantt Chart</Link></li>
+                    <li><Link to="/tasks">Tasks</Link></li>
                     <li><Link to="/about">About</Link></li>
                     {/* More sidebar items */}
                 </ul>
