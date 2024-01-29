@@ -3,6 +3,7 @@ import { getAuth, signOut } from 'firebase/auth';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import { Link } from 'react-router-dom';
+import colors from "tailwindcss/colors.js";
 
 const Dashboard = () => {
     const [projects, setProjects] = useState([]);
@@ -34,7 +35,7 @@ const Dashboard = () => {
     };
 
     return (
-        <div className="drawer drawer-mobile">
+        <div className="drawer drawer-mobile flex flex-col">
             <input id="dashboard-sidebar" type="checkbox" className="drawer-toggle" />
             <div className="drawer-content flex flex-col">
                 {/* Navbar */}
@@ -110,6 +111,110 @@ const Dashboard = () => {
                     <li><Link to="/about">About</Link></li>
                     {/* More sidebar items */}
                 </ul>
+            </div>
+            <div className="flex justify-center items-center mt-10">
+                <div className="h-96 flex space-x-6">
+                    <div className="h-96 carousel carousel-vertical rounded-box">
+                        <div className="carousel-item h-full bg-gray-800">
+                            <div className="card w-80 bg-gray-800 shadow-xl">
+                                <figure>
+                                    <img src="/images/work_pic.jpg" alt="car!" />
+                                </figure>
+                                <div className="card-body">
+                                    <h2 className="card-title" style={{ color: "white" }}>Mobile App Development</h2>
+                                    <div className="card-actions justify-end">
+                                        <div className="radial-progress bg-gray-900 text-primary-content border-4 border-white" style={{ "--value": 70, color:"yellow" }} role="progressbar">70%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="carousel-item h-full bg-gray-800">
+                            <div className="card w-80 bg-gray-800 shadow-xl">
+                                <figure>
+                                    <img src="/images/work_pic.jpg" alt="car!" />
+                                </figure>
+                                <div className="card-body">
+                                    <h2 className="card-title" style={{ color: "white" }}>CSAD</h2>
+                                    <div className="card-actions justify-end">
+                                        <div className="radial-progress bg-red-500 text-white border-4 border-white" style={{ "--value": 25 }} role="progressbar">25%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="carousel-item h-full bg-gray-800">
+                            <div className="card w-80 bg-gray-800 shadow-xl">
+                                <figure>
+                                    <img src="/images/work_pic.jpg" alt="car!" />
+                                </figure>
+                                <div className="card-body">
+                                    <h2 className="card-title" style={{ color: "white" }}>Finance Project</h2>
+                                    <div className="card-actions justify-end">
+                                        <div className="radial-progress bg-yellow-500 text-white border-4 border-white" style={{ "--value": 57 }} role="progressbar">57%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="carousel-item h-full bg-gray-800">
+                            <div className="card w-80 bg-gray-800 shadow-xl">
+                                <figure>
+                                    <img src="/images/work_pic.jpg" alt="car!" />
+                                </figure>
+                                <div className="card-body">
+                                    <h2 className="card-title" style={{ color: "white" }}>MAPP</h2>
+                                    <div className="card-actions justify-end">
+                                        <div className="radial-progress bg-gray-900 text-primary-content border-4 border-white" style={{ "--value": 83, color:"green" }} role="progressbar">83%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="h-96 carousel carousel-vertical rounded-box">
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1559703248-dcaaec9fab78.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1565098772267-60af42b81ef2.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1572635148818-ef6fd45eb394.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1494253109108-2e30c049369b.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1550258987-190a2d41a8ba.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1559181567-c3190ca9959b.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1601004890684-d8cbf643f5f2.jpg" />
+                        </div>
+                    </div>
+                    <div className="h-96 carousel carousel-vertical rounded-box">
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1559703248-dcaaec9fab78.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1565098772267-60af42b81ef2.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1572635148818-ef6fd45eb394.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1494253109108-2e30c049369b.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1550258987-190a2d41a8ba.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1559181567-c3190ca9959b.jpg" />
+                        </div>
+                        <div className="carousel-item h-full">
+                            <img src="https://daisyui.com/images/stock/photo-1601004890684-d8cbf643f5f2.jpg" />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
