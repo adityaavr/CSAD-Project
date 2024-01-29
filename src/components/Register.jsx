@@ -1,5 +1,5 @@
 // src/components/Register.jsx
-import React, { useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { useNavigate } from 'react-router-dom';
 import {Link} from "react-router-dom";
 import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -64,13 +64,38 @@ const Register = () => {
         console.log('Registering user', user);
     };
 
+    const carouselRef = useRef(null);
+
+    useEffect(() => {
+        const carousel = carouselRef.current;
+
+        let currentIndex = 0;
+        const intervalId = setInterval(() => {
+            // Move to the next item
+            currentIndex = (currentIndex + 1) % carousel.children.length;
+            carousel.style.transform = `translateX(-${currentIndex * 100}%)`;
+        }, 3000); // Change slide every 3 seconds
+
+        // Cleanup the interval on component unmount
+        return () => clearInterval(intervalId);
+    }, []);
+
+
+
     return (
         <div className="flex min-h-screen bg-base-200">
             <div className="flex-1 flex justify-center items-center">
                 {/* Add a div with a background image here */}
-                <div className="text-center p-10 bg-opacity-60 rounded-lg">
-                    <h1 className="text-4xl font-bold mb-4">Welcome to Planthara</h1>
-                    <p className="mb-4">Where ideas can coexist.</p>
+                {/* Set a fixed size for the carousel wrapper */}
+                <div className="w-full max-w-lg">
+                    {/* Carousel */}
+                    <div className="carousel rounded-lg shadow-2xl overflow-hidden relative" style={{ height: '300px' }}>
+                        <div ref={carouselRef} className="carousel-inner relative w-full overflow-hidden">
+                            {/* Carousel items */}
+                            {/* ... */}
+
+                        </div>
+                    </div>
                 </div>
             </div>
             <div className="flex-1 flex justify-center items-center">

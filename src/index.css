@@ -1,3 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.vis-timeline {
+    @apply w-full h-96;
+}

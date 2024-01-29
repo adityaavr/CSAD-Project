@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { getAuth, signOut } from 'firebase/auth';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import { Link } from 'react-router-dom';
+import {Link, useNavigate} from 'react-router-dom';
 
 const Dashboard = () => {
     const [projects, setProjects] = useState([]);
+    const [userImageUrl, setUserImageUrl] = useState('');
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const navigate = useNavigate();
     const auth = getAuth();
     const user = auth.currentUser;
 
@@ -21,12 +23,27 @@ const Dashboard = () => {
             setProjects(fetchedProjects);
         };
 
+        const fetchUserProfile = async () => {
+            if (user) {
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDocSnapshot = await getDoc(userDocRef);
+                if (userDocSnapshot.exists()) {
+                    const userData = userDocSnapshot.data();
+                    if (userData.profileImageUrl) {
+                        setUserImageUrl(userData.profileImageUrl);
+                    }
+                }
+            }
+        };
+
         fetchProjects();
-    }, []);
+        fetchUserProfile();
+    }, [user]);
 
     const handleSignOut = () => {
         signOut(auth).then(() => {
             // Sign-out successful.
+            navigate('/register')
         }).catch((error) => {
             // An error happened.
             console.log(error)
@@ -53,7 +70,7 @@ const Dashboard = () => {
                         <div className="dropdown dropdown-end">
                             <div tabIndex={0} className="btn btn-ghost btn-circle avatar">
                                 <div className="w-10 rounded-full">
-                                    <img src={user.photoURL || "https://daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"} alt="Profile" />
+                                    <img src={userImageUrl || "https://daisyui.com/images/stock/photo-1534528741775-53994a69daeb.jpg"} alt="Profile" />
                                 </div>
                             </div>
                             <ul tabIndex={0} className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
