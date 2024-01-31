@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig.js';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import log from "eslint-plugin-react/lib/util/log.js";
 
 const TaskItem = ({ task, onTaskClick, index }) => {
     const [, drag] = useDrag({
@@ -12,6 +13,7 @@ const TaskItem = ({ task, onTaskClick, index }) => {
         item: { task, id: task.id, index },
     });
 
+    console.log(`Task ID: ${task.id}`);
     console.log(`Rendering TaskItem for task: ${task.name}`);
     console.log("Task data:", task);
 
@@ -46,8 +48,6 @@ const TaskItem = ({ task, onTaskClick, index }) => {
         </div>
     );
 };
-
-
 
 TaskItem.propTypes = {
     task: PropTypes.shape({
@@ -90,7 +90,7 @@ const Tasks = () => {
 
                             userTasksSnapshot.forEach((taskDoc) => {
                                 const taskData = taskDoc.data();
-                                allTasks.push(taskData);
+                                allTasks.push({ ...taskData, id: taskDoc.id }); // Include the Firestore document ID
                             });
                         }
 
@@ -116,31 +116,12 @@ const Tasks = () => {
             }
         };
 
-
         fetchTasks();
     }, []);
 
     useEffect(() => {
         console.log('Task data updated:', taskData);
     }, [taskData]);
-
-    // Group tasks by status
-    const categorizedTasks = taskData.reduce((categories, task) => {
-        const existingCategory = categories.find((cat) => cat.status === task.status);
-
-        if (existingCategory) {
-            existingCategory.tasks.push(task);
-        } else {
-            categories.push({
-                status: task.status,
-                tasks: [task],
-            });
-        }
-
-        return categories;
-    }, []);
-
-    console.log('Categorized tasks:', categorizedTasks);
 
     const handleTaskItemClick = (task) => {
         setEnlargedTask(task);
@@ -179,7 +160,7 @@ const Tasks = () => {
             // Construct the tasks subcollection path for the project
             const userTasksCollectionRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
 
-            // Update Firestore with the edited task data
+            // Update Firestore with the edited task data using the Firestore document ID
             await updateDoc(userTasksCollectionRef, editedTask.id, editedTask);
         } else {
             console.error('Project not found for the edited task');
@@ -192,51 +173,111 @@ const Tasks = () => {
         document.getElementById('enlargedTaskModal').close();
     };
 
-    const moveTask = async (fromIndex, toIndex, fromCategoryIndex, toCategoryIndex, taskId) => {
+    const moveTask = async (taskId, fromCategoryStatus, toCategoryStatus) => {
         try {
-            const updatedTaskData = [...taskData];
-            const movedTaskIndex = updatedTaskData[fromCategoryIndex].tasks.findIndex((t) => t.id === taskId);
-
-            if (movedTaskIndex !== -1) {
-                const [movedTask] = updatedTaskData[fromCategoryIndex].tasks.splice(movedTaskIndex, 1);
-
-                const adjustedToIndex =
-                    toIndex < 0
-                        ? 0
-                        : toIndex >= updatedTaskData[toCategoryIndex].tasks.length
-                            ? updatedTaskData[toCategoryIndex].tasks.length
-                            : toIndex;
-
-                movedTask.status = updatedTaskData[toCategoryIndex].status;
-                movedTask.bgColor = getColorClass(movedTask.status);
-                updatedTaskData[toCategoryIndex].tasks.splice(adjustedToIndex, 0, movedTask);
-
-                setTaskData(updatedTaskData);
-
-                const auth = getAuth();
-                const user = auth.currentUser;
-                const userId = user.uid;
-
-                // Construct the tasks collection path for the project
-                const userTasksCollectionRef = collection(db, `projects/${userId}/projects/tasks`);
-
-                // Find the task document
-                const taskSnapshot = await getDocs(userTasksCollectionRef);
-                const taskDoc = taskSnapshot.docs.find((doc) => doc.id === taskId);
-
-                console.log('Task document:', taskDoc?.data());
-
-                if (taskDoc) {
-                    // Reference the document and update specific fields (e.g., status)
-                    const taskDocRef = doc(userTasksCollectionRef, taskId);
-                    await updateDoc(taskDocRef, { status: movedTask.status });
-                } else {
-                    console.error('Task document not found');
-                }
+            const auth = getAuth();
+            const user = auth.currentUser;
+            if (!user) {
+                console.error("User not authenticated");
+                return;
             }
+            const userId = user.uid;
+
+            // Use the function to find the project ID for the task
+            const projectId = await findProjectIdForTask(taskId, userId);
+
+            if (!projectId) {
+                console.error("Project for task not found");
+                return;
+            }
+
+            // Now that you have the project ID, construct the path to the task document
+            const taskRef = doc(db, `projects/${userId}/projects/${projectId}/tasks`, taskId);
+
+            // Update the task's status
+            await updateDoc(taskRef, { status: toCategoryStatus });
+            console.log('Task status updated successfully in Firestore');
+            updateTaskStatusAndCategory(taskId, toCategoryStatus); // Update local state to reflect the change
+
+
+
+            // Update your local state as necessary
         } catch (error) {
             console.error('Error moving task:', error);
         }
+    };
+
+
+    async function findProjectIdForTask(taskId, userId) {
+        try {
+            const projectsRef = collection(db, `projects/${userId}/projects`);
+            const querySnapshot = await getDocs(projectsRef);
+
+            for (const projectDoc of querySnapshot.docs) {
+                const projectId = projectDoc.id;
+                const tasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
+                const tasksSnapshot = await getDocs(tasksRef);
+
+                const taskExists = tasksSnapshot.docs.some(taskDoc => taskDoc.id === taskId);
+                if (taskExists) {
+                    return projectId; // Return the project ID where the task was found
+                }
+            }
+
+            // If the task was not found in any project, return null or an appropriate value
+            return null;
+        } catch (error) {
+            console.error("Error finding project for task:", error);
+            return null;
+        }
+    }
+
+
+    // Example of updating local state after Firestore update (simplified)
+    const updateLocalStateWithNewStatus = (taskId, newStatus) => {
+        setTaskData(prevTaskData => prevTaskData.map(category => ({
+            ...category,
+            tasks: category.tasks.map(task => {
+                if (task.id === taskId) {
+                    return { ...task, status: newStatus }; // Update the status of the relevant task
+                }
+                return task;
+            })
+        })));
+    };
+
+
+    const updateTaskStatusAndCategory = (taskId, newStatus) => {
+        setTaskData(currentTaskData => {
+            // Create a deep copy of the current task data
+            const newTaskData = currentTaskData.map(category => ({
+                ...category,
+                tasks: category.tasks.filter(task => task.id !== taskId) // Remove the task from its current category
+            }));
+
+            // Find the task that is being updated
+            const taskToUpdate = currentTaskData
+                .flatMap(category => category.tasks)
+                .find(task => task.id === taskId);
+
+            if (!taskToUpdate) {
+                console.error("Task not found");
+                return currentTaskData; // Return the original data if the task is not found
+            }
+
+            // Update the task's status
+            const updatedTask = { ...taskToUpdate, status: newStatus };
+
+            // Add the updated task to its new category
+            const targetCategoryIndex = newTaskData.findIndex(category => category.status === newStatus);
+            if (targetCategoryIndex !== -1) {
+                newTaskData[targetCategoryIndex].tasks.push(updatedTask);
+            } else {
+                console.error("Target category not found");
+            }
+
+            return newTaskData; // Return the updated task data
+        });
     };
 
 
@@ -258,17 +299,13 @@ const Tasks = () => {
             accept: 'TASK',
             drop: async (item, monitor) => {
                 if (monitor.isOver()) {
-                    const fromIndex = item.index;
-                    const toIndex = index;
-                    const fromCategoryIndex = taskData.findIndex((cat) => cat.status === item.task.status);
-                    const toCategoryIndex = index;
+                    const fromCategoryStatus = item.task.status; // Assuming the dragged item includes its current status
+                    const toCategoryStatus = category.status; // The target category's status
 
-                    await moveTask(fromIndex, toIndex, fromCategoryIndex, toCategoryIndex, item.id);
-                    item.index = toIndex;
+                    await moveTask(item.id, fromCategoryStatus, toCategoryStatus);
                 }
             },
         });
-
 
         console.log(`Rendering TaskCategory for category: ${category.status}`);
         console.log(`Tasks in category:`, category.tasks);
@@ -438,4 +475,6 @@ const Tasks = () => {
 };
 
 export default Tasks;
+
+
 
