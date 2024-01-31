@@ -7,7 +7,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebaseConfig.js";
-import { convertFirestoreProjectsToGanttFormat } from "../GanttHelper/helper.jsx";
+import { convertFirestoreProjectsToGanttFormat } from "../GanttHelper/GanttHelper.jsx";
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
@@ -155,7 +155,6 @@ const Projects = () => {
                     <span className="loading loading-infinity loading-lg"></span>
                 </div>
             )}
-
             {!loading && (
                 <div className="p-4">
                     <button

@@ -8,6 +8,7 @@ import Dashboard from "./components/Dashboard.jsx";
 import Tasks from "./components/Tasks.jsx";
 import GanttChart from "./components/GanttChart.jsx";
 import Projects from "./components/Projects.jsx";
+import Navbar from "./components/Navbar.jsx";
 
 const App = () => {
     return (
@@ -17,9 +18,24 @@ const App = () => {
                 <Route path="*" element={<Register />} />
                 <Route path="/additional-details" element={<AdditionalDetails />} />
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/tasks" element={<Tasks />} />
-                <Route path="/ganttchart" element={<GanttChart />} />
-                <Route path="/projects" element={<Projects />} />
+                <Route path="/tasks" element={
+                    <div className="flex flex-col h-1">
+                        <Navbar />
+                        <Tasks />
+                    </div>
+                } />
+                <Route path="/ganttchart" element={
+                    <div className="flex flex-col h-1">
+                        {/*<Navbar />*/}
+                        <GanttChart />
+                    </div>
+                } />
+                <Route path="/projects" element={
+                    <div className="flex flex-col h-1">
+                        <Navbar />
+                        <Projects />
+                    </div>
+                } />
                 {/* Fallback Route */}
                 {/*<Route path="*" element={<div>Not Found</div>} />*/}
             </Routes>
