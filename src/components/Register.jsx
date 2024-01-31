@@ -40,6 +40,7 @@ const Register = () => {
             console.log('User created:', userCredential.user);
             await storeUserData(userCredential.user); // Store user data in Firestore
             // Redirect or update UI after successful registration
+            navigate('/additional-details');
         } catch (error) {
             console.error('Error in email/password signup:', error.message);
         }

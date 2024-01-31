@@ -93,3 +93,55 @@ export function getStartEndDateForProject(tasks, projectId) {
     }
     return [start, end];
 }
+
+export function convertFirestoreProjectsToGanttFormat(projects) {
+    return projects.map((project) => ({
+        start: project.startDate, // Adjust based on your Firestore project data
+        end: project.endDate,     // Adjust based on your Firestore project data
+        name: project.name,
+        id: project.id,
+        progress: project.tasks ? calculateProgress(project.tasks) : 0,
+        type: "project",
+        tasks: project.tasks || [],
+        hideChildren: false,
+    }));
+}
+
+export function calculateProgress(tasks) {
+    if (!tasks || tasks.length === 0) return 0;
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter((task) => task.status === 'Done').length;
+
+    return (completedTasks / totalTasks) * 100;
+}
+
+export function convertFirestoreTasksToGanttFormat(tasks) {
+    return tasks.map((task) => ({
+        start: task.startDate, // Adjust based on your Firestore task data
+        end: task.endDate,     // Adjust based on your Firestore task data
+        name: task.name,
+        id: task.id,
+        progress: task.progress || 0,
+        type: task.type || "task",
+        dependencies: task.dependencies || [],
+        project: task.project,
+    }));
+}
+
+// export function getStartEndDateForProject(tasks, projectId) {
+//     const projectTasks = tasks.filter((t) => t.project === projectId);
+//     let start = projectTasks[0].start;
+//     let end = projectTasks[0].end;
+//     for (let i = 0; i < projectTasks.length; i++) {
+//         const task = projectTasks[i];
+//         if (start.getTime() > task.start.getTime()) {
+//             start = task.start;
+//         }
+//         if (end.getTime() < task.end.getTime()) {
+//             end = task.end;
+//         }
+//     }
+//     return [start, end];
+// }
+

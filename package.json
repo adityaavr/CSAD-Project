@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@bitnoi.se/react-scheduler": "^0.1.4",
+    "@heroicons/react": "^2.1.1",
     "@syncfusion/ej2-react-gantt": "^24.1.47",
     "@tailwindcss/typography": "^0.5.10",
     "chart.js": "^4.4.1",
@@ -25,6 +26,8 @@
     "react-calendar-timeline": "^0.28.0",
     "react-chartjs-2": "^5.2.0",
     "react-datepicker": "^5.0.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",
     "react-google-charts": "^4.0.1",
     "react-router-dom": "^6.21.3",
