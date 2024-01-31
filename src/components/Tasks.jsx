@@ -143,29 +143,59 @@ const Tasks = () => {
 
         const auth = getAuth();
         const user = auth.currentUser;
+        if (!user) {
+            console.error("User not authenticated");
+            return;
+        }
         const userId = user.uid;
 
-        // Construct the user's projects collection path
-        const userProjectsCollectionRef = collection(db, `projects/${userId}/projects`);
+        try {
+            // Find the project that contains the task
+            const projectId = await findProjectIdForTask(editedTask.id, userId);
+            if (!projectId) {
+                throw new Error("Project not found for the edited task");
+            }
 
-        // Find the project document that contains the edited task
-        const projectSnapshot = await getDocs(userProjectsCollectionRef);
-        const projectDoc = projectSnapshot.docs.find((doc) =>
-            doc.data().tasks.some((t) => t.id === editedTask.id)
-        );
+            // Update the task in Firebase
+            const taskRef = doc(db, `projects/${userId}/projects/${projectId}/tasks`, editedTask.id);
+            await updateDoc(taskRef, { ...editedTask });
 
-        if (projectDoc) {
-            const projectId = projectDoc.id;
+            // Optimistically update the UI
+            updateTaskInLocalState(editedTask);
 
-            // Construct the tasks subcollection path for the project
-            const userTasksCollectionRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
-
-            // Update Firestore with the edited task data using the Firestore document ID
-            await updateDoc(userTasksCollectionRef, editedTask.id, editedTask);
-        } else {
-            console.error('Project not found for the edited task');
+            console.log('Task updated successfully in Firestore');
+        } catch (error) {
+            console.error('Error updating task:', error);
         }
     };
+
+// Function to update a task in the local state
+    // Function to move a task to its new category in the local state
+    const updateTaskInLocalState = (updatedTask) => {
+        setTaskData((prevTaskData) => {
+            // Remove the task from its current category
+            const newTaskData = prevTaskData.map((category) => ({
+                ...category,
+                tasks: category.tasks.filter((task) => task.id !== updatedTask.id),
+            }));
+
+            // Find the index of the new category the task should be in
+            const newCategoryIndex = newTaskData.findIndex(
+                (category) => category.status === updatedTask.status
+            );
+
+            // Add the task to the new category
+            if (newCategoryIndex !== -1) {
+                newTaskData[newCategoryIndex].tasks.push(updatedTask);
+            } else {
+                console.error("New category not found for the updated task");
+            }
+
+            return newTaskData;
+        });
+    };
+
+
 
     const handleCloseEnlargedTask = () => {
         setEnlargedTask(null);
@@ -281,6 +311,8 @@ const Tasks = () => {
     };
 
 
+
+
     const getColorClass = (status) => {
         switch (status) {
             case 'To do':
@@ -369,20 +401,20 @@ const Tasks = () => {
         };
 
         return (
-            <div key={index} ref={drop} className="w-1/3 rounded-xl p-4 shadow-lg">
+            <div ref={drop} className="w-1/3 rounded-xl p-4 shadow-lg">
                 <div className="flex items-center mb-2">
                     <h2 className="text-lg font-bold">{category.status}</h2>
                     {getIconByStatus(category.status)}
                 </div>
-                {category.tasks && category.tasks.map((task, taskIndex) => (
-                    <TaskItem key={task.id} task={task} onTaskClick={handleTaskItemClick} />
-                ))}
-                {/* Render UI for dropping even if there are no tasks */}
-                {!category.tasks || category.tasks.length === 0 ? (
+                {category.tasks.length > 0 ? (
+                    category.tasks.map((task, taskIndex) => (
+                        <TaskItem key={task.id} task={task} onTaskClick={handleTaskItemClick} />
+                    ))
+                ) : (
                     <div className="mt-4 p-2 border border-dashed border-gray-300 rounded">
                         Drop tasks here
                     </div>
-                ) : null}
+                )}
             </div>
         );
     };
