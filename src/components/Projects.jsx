@@ -83,20 +83,22 @@ const Projects = () => {
         const { name, value } = e.target;
         const newTasks = [...formData.tasks];
 
-        if (name.includes("taskName")) {
+        // Determine the type of input and update the task accordingly
+        if (name.startsWith('taskName')) {
             newTasks[index].name = value;
-        } else if (name.includes("startDate")) {
+        } else if (name.startsWith('startDate')) {
             newTasks[index].startDate = value;
-        } else if (name.includes("endDate")) {
+        } else if (name.startsWith('endDate')) {
             newTasks[index].endDate = value;
-        } else if (name.includes("priority")) {
-            newTasks[index].priority = value;
-        } else if (name.includes("status")) {
+        } else if (name.startsWith('taskPriority')) {
+            newTasks[index].priority = value; // Ensure the priority is updated correctly
+        } else if (name.startsWith('status')) {
             newTasks[index].status = value;
         }
 
-        setFormData((prevData) => ({ ...prevData, tasks: newTasks }));
+        setFormData(prevData => ({ ...prevData, tasks: newTasks }));
     };
+
 
     const handleFormSubmit = async (e) => {
         e.preventDefault();
@@ -108,6 +110,10 @@ const Projects = () => {
 
         const auth = getAuth();
         const user = auth.currentUser;
+        if (!user) {
+            console.error("User not authenticated");
+            return;
+        }
         const userId = user.uid;
 
         try {
@@ -115,26 +121,26 @@ const Projects = () => {
             const userProjectsRef = collection(db, `projects/${userId}/projects`);
             const projectDocRef = await addDoc(userProjectsRef, formData);
 
-            // Create a new tasks collection for the project using the project ID
             const projectId = projectDocRef.id;
+            const project = formData.name; // Capture the project name
             const userTasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
 
-            // Add each task to the tasks collection with the project field
-            formData.tasks.forEach(async (task, index) => {
-                // Include the project field in each task
-                const taskWithProject = {
-                    ...task,
-                    project: formData.name, // Assuming you want to use the project name
-                };
-
-                await addDoc(userTasksRef, taskWithProject);
+            // Modify each task to include the project name before adding it to Firestore
+            const taskAdditionPromises = formData.tasks.map(task => {
+                const taskWithProjectName = { ...task, project }; // Add project to each task
+                return addDoc(userTasksRef, taskWithProjectName);
             });
+
+            // Wait for all tasks to be added
+            await Promise.all(taskAdditionPromises);
+
 
             setProjects((prevProjects) => [
                 ...prevProjects,
-                { id: projectId, ...formData },
+                {id: projectId, ...formData},
             ]);
 
+            // Reset the form
             setFormData({
                 name: "",
                 tasks: [{ name: "", priority: "low", startDate: "", endDate: "", status: "To do" }],
@@ -142,9 +148,11 @@ const Projects = () => {
             setIsModalOpen(false);
             window.location.reload();
         } catch (error) {
-            console.error("Error adding project:", error.message);
+            console.error("Error adding project and tasks:", error.message);
         }
     };
+
+
 
 
     console.log("Projects state:", projects);
@@ -243,16 +251,15 @@ const Projects = () => {
                                                                 </label>
                                                                 <select
                                                                     className="select select-bordered w-full max-w-xs"
-                                                                    name={`taskPriority${index + 1}`}
+                                                                    name={`taskPriority${index + 1}`} // This should match the pattern checked in your handleTaskInputChange
                                                                     value={task.priority || "low"}
-                                                                    onChange={(e) =>
-                                                                        handleTaskInputChange(index, e)
-                                                                    }
+                                                                    onChange={(e) => handleTaskInputChange(index, e)}
                                                                 >
                                                                     <option value="low">Low</option>
                                                                     <option value="medium">Medium</option>
                                                                     <option value="high">High</option>
                                                                 </select>
+
                                                             </div>
                                                         ))}
                                                         <button
@@ -268,6 +275,7 @@ const Projects = () => {
                                                                             priority: "low",
                                                                             startDate: "",
                                                                             endDate: "",
+                                                                            status: "To do", // Add this line to include status for new tasks
                                                                         },
                                                                     ],
                                                                 }))
@@ -275,6 +283,7 @@ const Projects = () => {
                                                         >
                                                             Add Task
                                                         </button>
+
                                                     </label>
                                                 </div>
                                                 <div className="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse space-x-4">
@@ -337,4 +346,5 @@ const Projects = () => {
 };
 
 export default Projects;
+
 
