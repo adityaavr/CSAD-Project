@@ -4,6 +4,8 @@ import {
     getDocs,
     addDoc,
     onSnapshot,
+    doc,
+    deleteDoc, updateDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebaseConfig.js";
@@ -17,6 +19,7 @@ const Projects = () => {
     });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
+
 
     useEffect(() => {
         const fetchProjects = async () => {
@@ -117,22 +120,24 @@ const Projects = () => {
         const userId = user.uid;
 
         try {
-            // Add the project to the projects collection
-            const userProjectsRef = collection(db, `projects/${userId}/projects`);
-            const projectDocRef = await addDoc(userProjectsRef, formData);
+                // Add the project to the projects collection
+                const userProjectsRef = collection(db, `projects/${userId}/projects`);
+                const projectDocRef = await addDoc(userProjectsRef, formData);
 
-            const projectId = projectDocRef.id;
-            const project = formData.name; // Capture the project name
-            const userTasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
+                const projectId = projectDocRef.id;
+                const project = formData.name; // Capture the project name
+                const userTasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
 
-            // Modify each task to include the project name before adding it to Firestore
-            const taskAdditionPromises = formData.tasks.map(task => {
-                const taskWithProjectName = { ...task, project }; // Add project to each task
-                return addDoc(userTasksRef, taskWithProjectName);
-            });
+                // Modify each task to include the project name before adding it to Firestore
+                const taskAdditionPromises = formData.tasks.map(task => {
+                    const taskWithProjectName = { ...task, project }; // Add project to each task
+                    return addDoc(userTasksRef, taskWithProjectName);
+                });
 
-            // Wait for all tasks to be added
-            await Promise.all(taskAdditionPromises);
+                // Wait for all tasks to be added
+                await Promise.all(taskAdditionPromises);
+
+
 
 
             setProjects((prevProjects) => [
@@ -152,6 +157,32 @@ const Projects = () => {
         }
     };
 
+
+    /*const handleEditProject = (project) => {
+        setIsModalOpen(true);
+        setFormData(project);
+        setEditingProjectId(project.id); // Track the editing project's ID
+        setEditingTaskId()
+    };*/
+
+    const handleDeleteProject = async (projectId) => {
+        await deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId));
+
+        //Reference to the tasks subcollection
+        const tasksRef = collection(db, `projects/${getAuth().currentUser.uid}/projects/${projectId}/tasks`);
+
+        //Retrive all task documents
+        const taskSnapshot = await getDocs(tasksRef);
+
+        //Delete each task document
+        const taskDeletionPromises = taskSnapshot.docs.map((taskDoc) => {
+            return deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects/${projectId}/tasks`, taskDoc.id));
+        });
+
+        //Wait for all task documents to be deleted
+        await Promise.all(taskDeletionPromises);
+
+    };
 
 
 
@@ -311,32 +342,43 @@ const Projects = () => {
 
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
-                            <div key={index} className="p-6 rounded-lg shadow-lg">
+                            <div key={index} className="p-6 rounded-lg shadow-lg relative">
+                                <div className="absolute right-2 top-2">
+                                    <div className="dropdown dropdown-end">
+                                        <label tabIndex="0" className="btn btn-ghost btn-circle">
+                                            <div className="indicator">
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </div>
+                                        </label>
+                                        <ul tabIndex="0" className="menu dropdown-content p-2 shadow bg-base-100 rounded-box w-52">
+                                            <li><a onClick={() => handleEditProject(project)}>Edit</a></li>
+                                            <li><a onClick={() => handleDeleteProject(project.id)}>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <h1 className="text-xl font-bold mb-4">{project.name}</h1>
                                 <div className="flex">
                                     <div className="w-full">
                                         <h2 className="text-lg font-bold mb-2">Tasks:</h2>
                                         {project.tasks &&
-                                            project.tasks.map((task, index) => {
-                                                const taskKey = `${project.id}-${index}`;
-                                                console.log("Task Key:", taskKey);
-
-                                                return (
-                                                    <div key={taskKey} className="mb-2">
-                                                        <p className="text-md">
-                                                            <span className="font-bold">Task {index + 1}:</span> {task.name}
-                                                        </p>
-                                                        <p className="text-sm">Priority: {task.priority}</p>
-                                                        <p className="text-sm">Start Date: {task.startDate}</p>
-                                                        <p className="text-sm">End Date: {task.endDate}</p>
-                                                    </div>
-                                                );
-                                            })}
-
+                                            project.tasks.map((task, taskIndex) => (
+                                                <div key={`${project.id}-${taskIndex}`} className="mb-2">
+                                                    <p className="text-md">
+                                                        <span className="font-bold">Task {taskIndex + 1}:</span> {task.name}
+                                                    </p>
+                                                    <p className="text-sm">Priority: {task.priority}</p>
+                                                    <p className="text-sm">Start Date: {task.startDate}</p>
+                                                    <p className="text-sm">End Date: {task.endDate}</p>
+                                                    {/* Display other task details as needed */}
+                                                </div>
+                                            ))}
                                     </div>
                                 </div>
                             </div>
                         ))}
+
 
                     </div>
                 </div>
