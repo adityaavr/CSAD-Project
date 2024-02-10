@@ -6,6 +6,8 @@ import { getAuth, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthPro
 import { db } from '../firebaseConfig.js';
 import { doc, setDoc } from 'firebase/firestore';
 import '../firebaseConfig.js'
+import ThreeDFiberAnimation from "./ThreeDFiberAnimation.jsx";
+import { motion } from 'framer-motion';
 // Import any additional icons or components you might need
 
 const Register = () => {
@@ -81,26 +83,52 @@ const Register = () => {
         return () => clearInterval(intervalId);
     }, []);
 
+    const CarouselItem = ({ title, description }) => {
+        return (
+            <motion.div
+                initial={{ opacity: 0, x: 100 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -100 }}
+                transition={{ duration: 0.5 }}
+                className="carousel-item p-4 rounded-lg shadow-md bg-white"
+            >
+                <h3 className="text-xl font-semibold">{title}</h3>
+                <p className="text-gray-600">{description}</p>
+            </motion.div>
+        );
+    };
+
 
 
     return (
         <div className="flex min-h-screen bg-base-200">
-            <div className="flex-1 flex justify-center items-center">
-                {/* Add a div with a background image here */}
-                {/* Set a fixed size for the carousel wrapper */}
-                <div className="w-full max-w-lg">
-                    {/* Carousel */}
-                    <div className="carousel rounded-lg shadow-2xl overflow-hidden relative" style={{ height: '300px' }}>
-                        <div ref={carouselRef} className="carousel-inner relative w-full overflow-hidden">
-                            {/* Carousel items */}
-                            {/* ... */}
-
-                        </div>
-                    </div>
-                </div>
+            {/* Animation Section Above */}
+            <div className="fixed top-0 left-0 w-full h-full z-0">
+                <ThreeDFiberAnimation />
             </div>
             <div className="flex-1 flex justify-center items-center">
-                <div className="card w-full max-w-sm shadow-2xl bg-base-100">
+                <motion.div
+                    initial={{ opacity: 0, y: -100 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 100 }}
+                    transition={{ duration: 0.5 }}
+                    className=" w-full max-w-sm p-4"
+                >
+                    <h2 className="text-2xl font-semibold mb-4">Welcome to Planthara</h2>
+                    <p className="text-gray-600">
+                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla eget libero nec justo cursus lacinia.
+                        Proin ac ex non ligula convallis venenatis. Vivamus blandit turpis in justo ullamcorper, at venenatis
+                        massa iaculis.
+                    </p>
+                </motion.div>
+            </div>
+            <div className="flex-1 flex justify-center items-center">
+                <motion.div
+                    initial={{ opacity: 0, y: -100 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 100 }}
+                    transition={{ duration: 0.5 }}
+                    className="card w-full max-w-sm shadow-2xl bg-base-100">
                     <div className="card-body">
                         <h2 className="card-title">Create a new account</h2>
                         <form onSubmit={handleSubmit}>
@@ -135,7 +163,7 @@ const Register = () => {
                             </div>
                         </form>
                     </div>
-                </div>
+                </motion.div>
             </div>
         </div>
     );

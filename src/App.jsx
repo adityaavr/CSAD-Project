@@ -9,6 +9,7 @@ import Tasks from "./components/Tasks.jsx";
 import GanttChart from "./components/GanttChart.jsx";
 import Projects from "./components/Projects.jsx";
 import Navbar from "./components/Navbar.jsx";
+import ForgotPassword from "./components/ForgotPassword.jsx";
 
 const App = () => {
     return (
@@ -16,8 +17,13 @@ const App = () => {
             <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="*" element={<Register />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/additional-details" element={<AdditionalDetails />} />
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/dashboard" element={
+                    <div className="flex flex-col h-1">
+                        <Navbar />
+                        <Dashboard />
+                    </div>} />
                 <Route path="/tasks" element={
                     <div className="flex flex-col h-1">
                         <Navbar />
@@ -26,7 +32,7 @@ const App = () => {
                 } />
                 <Route path="/ganttchart" element={
                     <div className="flex flex-col h-1">
-                        {/*<Navbar />*/}
+                        <Navbar />
                         <GanttChart />
                     </div>
                 } />

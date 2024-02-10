@@ -94,19 +94,6 @@ export function getStartEndDateForProject(tasks, projectId) {
     return [start, end];
 }
 
-export function convertFirestoreProjectsToGanttFormat(projects) {
-    return projects.map((project) => ({
-        start: project.startDate, // Adjust based on your Firestore project data
-        end: project.endDate,     // Adjust based on your Firestore project data
-        name: project.name,
-        id: project.id,
-        progress: project.tasks ? calculateProgress(project.tasks) : 0,
-        type: "project",
-        tasks: project.tasks || [],
-        hideChildren: false,
-    }));
-}
-
 export function calculateProgress(tasks) {
     if (!tasks || tasks.length === 0) return 0;
 
@@ -116,16 +103,47 @@ export function calculateProgress(tasks) {
     return (completedTasks / totalTasks) * 100;
 }
 
-export function convertFirestoreTasksToGanttFormat(tasks) {
-    return tasks.map((task) => ({
-        start: task.startDate, // Adjust based on your Firestore task data
-        end: task.endDate,     // Adjust based on your Firestore task data
-        name: task.name,
-        id: task.id,
-        progress: task.progress || 0,
-        type: task.type || "task",
-        dependencies: task.dependencies || [],
-        project: task.project,
-    }));
+export function convertFirestoreProjectsToGanttFormat(projects) {
+    const ganttData = [];
+
+    projects.forEach((project) => {
+        const projectData = {
+            start: project.startDate ? new Date(project.startDate) : new Date(),
+            end: project.endDate ? new Date(project.endDate) : new Date(),
+            name: project.name || "",
+            id: project.id || "",
+            progress: project.tasks ? calculateProgress(project.tasks) : 0,
+            type: "project",
+            hideChildren: false,
+        };
+
+        const projectTasks = project.tasks || [];
+        const taskData = convertFirestoreTasksToGanttFormat(projectTasks);
+
+        ganttData.push(projectData, ...taskData);
+    });
+
+    return ganttData;
 }
 
+export function convertFirestoreTasksToGanttFormat(tasks) {
+    return tasks.map((task) => {
+        const dependencies = task.dependencies || [];
+
+        // Filter out dependencies that don't exist in the tasks array
+        const validDependencies = dependencies.filter((depId) =>
+            tasks.some((t) => t.id === depId)
+        );
+
+        return {
+            start: task.startDate ? new Date(task.startDate) : new Date(),
+            end: task.endDate ? new Date(task.endDate) : new Date(),
+            name: task.name || "",
+            id: task.id || "",
+            progress: task.progress || 0,
+            type: task.type || "task",
+            dependencies: validDependencies,
+            project: task.project || "",
+        };
+    });
+}

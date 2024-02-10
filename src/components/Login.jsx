@@ -112,7 +112,7 @@ const Login = () => {
                         </div>
                     </form>
                     <div className="flex justify-between items-center pt-4">
-                        <a href="#" className="link link-secondary">Forgot password?</a>
+                        <a href="/forgot-password" className="link link-secondary">Forgot password?</a>
                         <a href="/register" className="link link-secondary">Create account</a>
                     </div>
                 </div>

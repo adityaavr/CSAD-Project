@@ -66,17 +66,16 @@ export const ViewSwitcher = ({
                 </a>
             </div>
 
-            <div className="Switch flex items-center space-x-4 space-y-4">
-                <label className="Switch_Toggle">
+            <div className="form-control">
+                <label className="label cursor-pointer">
+                    <span className="label-text">Show Task List</span>
                     <input
                         type="checkbox"
                         className="checkbox checkbox-success"
                         defaultChecked={isChecked}
                         onClick={() => onViewListChange(!isChecked)}
                     />
-                    <span className="Slider" />
                 </label>
-                <span className="label-text">Show Task List</span>
             </div>
         </div>
     );

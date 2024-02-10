@@ -4,6 +4,8 @@ import {
     getDocs,
     addDoc,
     onSnapshot,
+    doc,
+    deleteDoc,
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebaseConfig.js";
@@ -11,11 +13,11 @@ import { convertFirestoreProjectsToGanttFormat } from "../GanttHelper/GanttHelpe
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
-    const [formData, setFormData] = useState({
+    const initialFormData = {
         name: "",
         tasks: [{ name: "", priority: "low", startDate: "", endDate: "", status: "To do" }],
-    });
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    };
+    const [formData, setFormData] = useState(initialFormData);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -32,7 +34,6 @@ const Projects = () => {
                     ...doc.data(),
                 }));
 
-                // Convert fetched projects to Gantt format
                 const ganttProjects = convertFirestoreProjectsToGanttFormat(fetchedProjects);
 
                 setProjects(ganttProjects);
@@ -83,19 +84,19 @@ const Projects = () => {
         const { name, value } = e.target;
         const newTasks = [...formData.tasks];
 
-        if (name.includes("taskName")) {
+        if (name.startsWith('taskName')) {
             newTasks[index].name = value;
-        } else if (name.includes("startDate")) {
+        } else if (name.startsWith('startDate')) {
             newTasks[index].startDate = value;
-        } else if (name.includes("endDate")) {
+        } else if (name.startsWith('endDate')) {
             newTasks[index].endDate = value;
-        } else if (name.includes("priority")) {
+        } else if (name.startsWith('taskPriority')) {
             newTasks[index].priority = value;
-        } else if (name.includes("status")) {
+        } else if (name.startsWith('status')) {
             newTasks[index].status = value;
         }
 
-        setFormData((prevData) => ({ ...prevData, tasks: newTasks }));
+        setFormData(prevData => ({ ...prevData, tasks: newTasks }));
     };
 
     const handleFormSubmit = async (e) => {
@@ -108,46 +109,53 @@ const Projects = () => {
 
         const auth = getAuth();
         const user = auth.currentUser;
+        if (!user) {
+            console.error("User not authenticated");
+            return;
+        }
         const userId = user.uid;
 
         try {
-            // Add the project to the projects collection
+            // Save to the existing collection
             const userProjectsRef = collection(db, `projects/${userId}/projects`);
             const projectDocRef = await addDoc(userProjectsRef, formData);
 
-            // Create a new tasks collection for the project using the project ID
             const projectId = projectDocRef.id;
+            const project = formData.name;
             const userTasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
 
-            // Add each task to the tasks collection with the project field
-            formData.tasks.forEach(async (task, index) => {
-                // Include the project field in each task
-                const taskWithProject = {
-                    ...task,
-                    project: formData.name, // Assuming you want to use the project name
-                };
-
-                await addDoc(userTasksRef, taskWithProject);
+            const taskAdditionPromises = formData.tasks.map(task => {
+                const taskWithProjectName = { ...task, project };
+                return addDoc(userTasksRef, taskWithProjectName);
             });
+
+            await Promise.all(taskAdditionPromises);
 
             setProjects((prevProjects) => [
                 ...prevProjects,
                 { id: projectId, ...formData },
             ]);
 
-            setFormData({
-                name: "",
-                tasks: [{ name: "", priority: "low", startDate: "", endDate: "", status: "To do" }],
-            });
-            setIsModalOpen(false);
-            window.location.reload();
+            setFormData(initialFormData);
+            document.getElementById('my_modal_1').close(); // Close the modal
         } catch (error) {
-            console.error("Error adding project:", error.message);
+            console.error("Error adding project and tasks:", error.message);
         }
     };
 
 
-    console.log("Projects state:", projects);
+    const handleDeleteProject = async (projectId) => {
+        await deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId));
+
+        const tasksRef = collection(db, `projects/${getAuth().currentUser.uid}/projects/${projectId}/tasks`);
+        const taskSnapshot = await getDocs(tasksRef);
+        const taskDeletionPromises = taskSnapshot.docs.map((taskDoc) => {
+            return deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects/${projectId}/tasks`, taskDoc.id));
+        });
+
+        await Promise.all(taskDeletionPromises);
+    };
+
     return (
         <div>
             {loading && (
@@ -157,178 +165,176 @@ const Projects = () => {
             )}
             {!loading && (
                 <div className="p-4">
-                    <button
-                        className="btn btn-primary mb-4"
-                        onClick={() => setIsModalOpen(true)}
-                    >
-                        Create Project
-                    </button>
+                    <div className="p-4">
+                        <button
+                            className="btn btn-primary mb-4"
+                            onClick={() => document.getElementById('my_modal_1').showModal()}
+                        >
+                            Create Project
+                        </button>
 
-                    {isModalOpen && (
-                        <div className="fixed inset-0 overflow-y-auto">
-                            <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-                                <div className="fixed inset-0 transition-opacity">
-                                    <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
-                                </div>
-                                <span className="hidden sm:inline-block sm:align-middle sm:h-screen"></span>&#8203;
-                                <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:w-full sm:max-w-3xl">
-                                    <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                                        <h3 className="text-lg font-medium leading-6 text-gray-900">
-                                            Create Project
-                                        </h3>
-                                        <div className="mt-2">
-                                            <form onSubmit={handleFormSubmit}>
-                                                <div className="mb-4">
-                                                    <label className="form-control w-full max-w-xs">
-                                                        <div className="label">
-                                                            <span className="label-text">Project Name:</span>
-                                                        </div>
-                                                        <input
-                                                            type="text"
-                                                            name="name"
-                                                            value={formData.name}
-                                                            onChange={handleInputChange}
-                                                            className="input input-bordered w-full max-w-xs"
-                                                            required
-                                                        />
-                                                    </label>
-                                                </div>
-                                                <div className="mb-4 space-y-1">
-                                                    <label className="form-control w-full max-w-xs">
-                                                        {formData.tasks.map((task, index) => (
-                                                            <div key={index} className="mb-4">
-                                                                <label className="block text-gray-700 text-sm font-bold mb-2">
-                                                                    Task {index + 1}:
-                                                                </label>
-                                                                <input
-                                                                    type="text"
-                                                                    name={`taskName${index + 1}`}
-                                                                    value={task.name || ""}
-                                                                    onChange={(e) =>
-                                                                        handleTaskInputChange(index, e)
-                                                                    }
-                                                                    className="input input-bordered w-full max-w-xs"
-                                                                    required
-                                                                />
-                                                                <p></p>
-                                                                <label className="block text-gray-700 text-sm font-bold mb-2">
-                                                                    Start Date:
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    name={`startDate${index + 1}`}
-                                                                    value={task.startDate || ""}
-                                                                    onChange={(e) =>
-                                                                        handleTaskInputChange(index, e)
-                                                                    }
-                                                                    className="input input-bordered w-full max-w-xs"
-                                                                    required
-                                                                />
-                                                                <label className="block text-gray-700 text-sm font-bold mb-2">
-                                                                    End Date:
-                                                                </label>
-                                                                <input
-                                                                    type="date"
-                                                                    name={`endDate${index + 1}`}
-                                                                    value={task.endDate || ""}
-                                                                    onChange={(e) =>
-                                                                        handleTaskInputChange(index, e)
-                                                                    }
-                                                                    className="input input-bordered w-full max-w-xs"
-                                                                    required
-                                                                />
-                                                                <p></p>
-                                                                <label className="block text-gray-700 text-sm font-bold mb-2">
-                                                                    Priority:
-                                                                </label>
-                                                                <select
-                                                                    className="select select-bordered w-full max-w-xs"
-                                                                    name={`taskPriority${index + 1}`}
-                                                                    value={task.priority || "low"}
-                                                                    onChange={(e) =>
-                                                                        handleTaskInputChange(index, e)
-                                                                    }
-                                                                >
-                                                                    <option value="low">Low</option>
-                                                                    <option value="medium">Medium</option>
-                                                                    <option value="high">High</option>
-                                                                </select>
-                                                            </div>
-                                                        ))}
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-secondary mr-2"
-                                                            onClick={() =>
-                                                                setFormData((prevData) => ({
-                                                                    ...prevData,
-                                                                    tasks: [
-                                                                        ...prevData.tasks,
-                                                                        {
-                                                                            name: "",
-                                                                            priority: "low",
-                                                                            startDate: "",
-                                                                            endDate: "",
-                                                                        },
-                                                                    ],
-                                                                }))
-                                                            }
-                                                        >
-                                                            Add Task
-                                                        </button>
-                                                    </label>
-                                                </div>
-                                                <div className="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse space-x-4">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setIsModalOpen(false)}
-                                                        className="btn btn-secondary mt-3 sm:mt-0"
+                        <dialog id="my_modal_1" className="modal">
+                            <div className="modal-box">
+                                <h3 className="font-bold text-lg">Create Project</h3>
+                                <form onSubmit={handleFormSubmit}>
+                                    <div className="mt-4">
+                                        <label className="block mb-2">
+                                            <div>
+                                                <span className="label-text">Project Name</span>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                name="name"
+                                                value={formData.name}
+                                                onChange={handleInputChange}
+                                                className="input input-bordered w-full max-w-xs"
+                                                required
+                                            />
+                                        </label>
+                                    </div>
+                                    <div className="mt-4">
+                                        {formData.tasks.map((task, index) => (
+                                            <div key={index} className="space-y-4">
+                                                <label className="block mb-2">
+                                                    <div>
+                                                        <span className="label-text">Task {index + 1}</span>
+                                                    </div>
+                                                    <input
+                                                        type="text"
+                                                        name={`taskName${index + 1}`}
+                                                        value={task.name || ""}
+                                                        onChange={(e) =>
+                                                            handleTaskInputChange(index, e)
+                                                        }
+                                                        className="input input-bordered w-full max-w-xs"
+                                                        required
+                                                    />
+                                                </label>
+                                                <label className="block mb-2">
+                                                    <div>
+                                                        <span className="label-text">Start Date</span>
+                                                    </div>
+                                                    <input
+                                                        type="date"
+                                                        name={`startDate${index + 1}`}
+                                                        value={task.startDate || ""}
+                                                        onChange={(e) =>
+                                                            handleTaskInputChange(index, e)
+                                                        }
+                                                        className="input input-bordered w-full max-w-xs"
+                                                        required
+                                                    />
+                                                </label>
+                                                <label className="block mb-2">
+                                                    <div>
+                                                        <span className="label-text">End Date</span>
+                                                    </div>
+                                                    <input
+                                                        type="date"
+                                                        name={`endDate${index + 1}`}
+                                                        value={task.endDate || ""}
+                                                        onChange={(e) =>
+                                                            handleTaskInputChange(index, e)
+                                                        }
+                                                        className="input input-bordered w-full max-w-xs"
+                                                        required
+                                                    />
+                                                </label>
+                                                <label className="block mb-2">
+                                                    <div>
+                                                        <span className="label-text">Priority</span>
+                                                    </div>
+                                                    <select
+                                                        className="select select-bordered w-full max-w-xs"
+                                                        name={`taskPriority${index + 1}`}
+                                                        value={task.priority || "low"}
+                                                        onChange={(e) => handleTaskInputChange(index, e)}
                                                     >
-                                                        Close
-                                                    </button>
-                                                    <button
-                                                        type="submit"
-                                                        className="btn btn-primary"
-                                                    >
-                                                        Save Project
-                                                    </button>
-                                                </div>
-                                            </form>
+                                                        <option value="low">Low</option>
+                                                        <option value="medium">Medium</option>
+                                                        <option value="high">High</option>
+                                                    </select>
+                                                </label>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="mt-6 flex justify-between">
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() =>
+                                                setFormData((prevData) => ({
+                                                    ...prevData,
+                                                    tasks: [
+                                                        ...prevData.tasks,
+                                                        {
+                                                            name: "",
+                                                            priority: "low",
+                                                            startDate: "",
+                                                            endDate: "",
+                                                            status: "To do",
+                                                        },
+                                                    ],
+                                                }))
+                                            }
+                                        >
+                                            Add Task
+                                        </button>
+                                        <div>
+                                            <button
+                                                type="button"
+                                                onClick={() => document.getElementById('my_modal_1').close()}
+                                                className="btn btn-secondary mr-2"
+                                            >
+                                                Close
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="btn btn-primary"
+                                            >
+                                                Save Project
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
+                                </form>
                             </div>
-                        </div>
-                    )}
+                        </dialog>
+                    </div>
 
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
-                            <div key={index} className="p-6 rounded-lg shadow-lg">
+                            <div key={index} className="p-6 rounded-lg shadow-lg relative">
+                                <div className="absolute top-2 right-2">
+                                    <div className="dropdown dropdown-end">
+                                        <div tabIndex={0} role="button" className="btn btn-ghost btn-circle dropdown-toggle">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                                            </svg>
+                                        </div>
+                                        <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                                            <li><a onClick={() => handleDeleteProject(project.id)}>Delete</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
                                 <h1 className="text-xl font-bold mb-4">{project.name}</h1>
                                 <div className="flex">
                                     <div className="w-full">
                                         <h2 className="text-lg font-bold mb-2">Tasks:</h2>
                                         {project.tasks &&
-                                            project.tasks.map((task, index) => {
-                                                const taskKey = `${project.id}-${index}`;
-                                                console.log("Task Key:", taskKey);
-
-                                                return (
-                                                    <div key={taskKey} className="mb-2">
-                                                        <p className="text-md">
-                                                            <span className="font-bold">Task {index + 1}:</span> {task.name}
-                                                        </p>
-                                                        <p className="text-sm">Priority: {task.priority}</p>
-                                                        <p className="text-sm">Start Date: {task.startDate}</p>
-                                                        <p className="text-sm">End Date: {task.endDate}</p>
-                                                    </div>
-                                                );
-                                            })}
-
+                                            project.tasks.map((task, taskIndex) => (
+                                                <div key={`${project.id}-${taskIndex}`} className="mb-2">
+                                                    <p className="text-md">
+                                                        <span className="font-bold">Task {taskIndex + 1}:</span> {task.name}
+                                                    </p>
+                                                    <p className="text-sm">Priority: {task.priority}</p>
+                                                    <p className="text-sm">Start Date: {task.startDate}</p>
+                                                    <p className="text-sm">End Date: {task.endDate}</p>
+                                                </div>
+                                            ))}
                                     </div>
                                 </div>
                             </div>
                         ))}
-
                     </div>
                 </div>
             )}
@@ -337,4 +343,3 @@ const Projects = () => {
 };
 
 export default Projects;
-
