@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebaseConfig.js";
+import async from "async";
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
@@ -21,8 +22,31 @@ const Projects = () => {
     const [formData, setFormData] = useState(initialFormData);
     const [loading, setLoading] = useState(true);
     const [editProjectId, setEditProjectId] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [showAddCollaboratorsModal, setShowAddCollaboratorsModal] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value);
+    };
+
+    const filteredUsers = searchTerm === '' ? [] : users.filter((user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     useEffect(() => {
+        const fetchUsers = async () => {
+            const usersCollectionRef = collection(db, 'users');
+            const userData = await getDocs(usersCollectionRef);
+            const userList = userData.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setUsers(userList);
+        };
+
+        fetchUsers();
+
         const unsubscribeAuthStateChanged = onAuthStateChanged(getAuth(), (user) => {
             console.log("Auth state changed:", user);
             if (user) {
@@ -52,6 +76,23 @@ const Projects = () => {
 
         return () => unsubscribeAuthStateChanged();
     }, []);
+
+    // State to manage the fade-out effect
+    const [isClosing, setIsClosing] = useState(false);
+
+    // Function to open the modal
+    const handleOpenAddCollaborators = () => {
+        setIsClosing(false);
+        setShowAddCollaboratorsModal(true);
+    };
+
+    // Function to close the modal with a fade-out effect
+    const handleCloseAddCollaborators = () => {
+        setIsClosing(true); // Trigger the fade-out effect
+        setTimeout(() => {
+            setShowAddCollaboratorsModal(false); // After the animation, remove the modal from the DOM
+        }, 300); // The timeout
+    }
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -331,14 +372,26 @@ const Projects = () => {
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
                             <div key={index} className="p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
+                                {/* New dropdown for collaborators to the left of the existing dropdown */}
+                                <div className="dropdown absolute top-2 right-16">
+                                    <label tabIndex={0} className="m-1 btn border bg-transparent border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
+                                        <svg className="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <path stroke="currentColor" strokeLinecap="round" strokeWidth="2" d="M4.5 17H4a1 1 0 0 1-1-1 3 3 0 0 1 3-3h1m0-3a2.5 2.5 0 1 1 2-4.5M19.5 17h.5c.6 0 1-.4 1-1a3 3 0 0 0-3-3h-1m0-3a2.5 2.5 0 1 0-2-4.5m.5 13.5h-7a1 1 0 0 1-1-1 3 3 0 0 1 3-3h3a3 3 0 0 1 3 3c0 .6-.4 1-1 1Zm-1-9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/>
+                                        </svg>
+                                    </label>
+                                    <ul tabIndex={0} className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
+                                        <li><a>View collaborators</a></li>
+                                        <li><a onClick={() => handleOpenAddCollaborators()}>Add collaborators</a></li>
+                                    </ul>
+                                </div>
+
+                                {/* Existing dropdown for project options */}
                                 <div className="dropdown dropdown-end absolute top-2 right-2">
-                                    {/* Remove background on hover by setting the same bg class and remove shadow/border */}
                                     <div tabIndex={0} className="m-1 btn border bg-transparent border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </div>
-                                    {/* Ensure the dropdown content also has no border or shadow if not desired */}
                                     <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-white border border-transparent focus:outline-none focus:border-transparent hover:border-white">
                                         <li>
                                             <a onClick={() => handleEditProject(project.id)}>Edit</a>
@@ -358,9 +411,48 @@ const Projects = () => {
                                 </ul>
                             </div>
                         ))}
+
                     </div>
 
 
+                </div>
+            )}
+            {showAddCollaboratorsModal && (
+                <div
+                    className={`modal ${isClosing ? 'fade-out' : 'modal-open'} modal-bottom sm:modal-middle`}
+                    onAnimationEnd={() => isClosing && setShowAddCollaboratorsModal(false)}
+                >
+                    <div className="modal-box">
+                        {/* Modal content */}
+                        <h3 className="font-bold text-lg">Add Collaborators</h3>
+                        {/* Search View */}
+                        <div className="form-control">
+                            <label className="label">
+                                <span className="label-text">Search for user by username</span>
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="Find collaborators by username!"
+                                className="input input-bordered"
+                                value={searchTerm}
+                                onChange={handleSearchChange}/>
+                        </div>
+                        {/* List View */}
+                        <ul className="overflow-auto h-64">
+                            {filteredUsers.map((user) => (
+                                <li key={user.id} className="flex items-center gap-4 p-2 border-b">
+                                    <img src={user.profileImageUrl} alt="Profile" className="w-10 h-10 rounded-full" />
+                                    <div>
+                                        <div>{user.name}</div>
+                                        <div className="text-sm text-gray-600">@{user.username}</div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="modal-action">
+                            <button className="btn btn-primary" onClick={handleCloseAddCollaborators}>Close</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
