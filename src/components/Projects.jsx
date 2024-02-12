@@ -260,20 +260,23 @@ const Projects = () => {
                     </div>
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
-                            <div key={index} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 relative">
-                                <div className="absolute top-4 right-4 flex space-x-2">
-                                    <button
-                                        onClick={() => handleEditProject(project.id)}
-                                        className="btn btn-xs btn-info"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteProject(project.id)}
-                                        className="btn btn-xs btn-error"
-                                    >
-                                        Delete
-                                    </button>
+                            <div key={index} className="bg-white p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
+                                <div className="dropdown dropdown-end absolute top-2 right-2">
+                                    {/* Remove background on hover by setting the same bg class and remove shadow/border */}
+                                    <div tabIndex={0} className="m-1 btn bg-white border border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                    {/* Ensure the dropdown content also has no border or shadow if not desired */}
+                                    <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-white border border-transparent focus:outline-none focus:border-transparent hover:border-white">
+                                        <li>
+                                            <a onClick={() => handleEditProject(project.id)}>Edit</a>
+                                        </li>
+                                        <li>
+                                            <a onClick={() => handleDeleteProject(project.id)}>Delete</a>
+                                        </li>
+                                    </ul>
                                 </div>
                                 <h1 className="text-2xl font-semibold mb-4">{project.name}</h1>
                                 <ul className="list-disc pl-5 space-y-2">
@@ -286,6 +289,8 @@ const Projects = () => {
                             </div>
                         ))}
                     </div>
+
+
                 </div>
             )}
         </div>
