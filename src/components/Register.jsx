@@ -116,9 +116,7 @@ const Register = () => {
                 >
                     <h2 className="text-2xl font-semibold mb-4">Welcome to Planthara</h2>
                     <p className="text-gray-600">
-                        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla eget libero nec justo cursus lacinia.
-                        Proin ac ex non ligula convallis venenatis. Vivamus blandit turpis in justo ullamcorper, at venenatis
-                        massa iaculis.
+                        Your centralized planning hub for all projects and tasks. Never miss any deadlines again and collaborate seamlessly with your fellow teammates.
                     </p>
                 </motion.div>
             </div>

@@ -330,10 +330,10 @@ const Projects = () => {
                     </div>
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
-                            <div key={index} className="bg-white p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
+                            <div key={index} className="p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
                                 <div className="dropdown dropdown-end absolute top-2 right-2">
                                     {/* Remove background on hover by setting the same bg class and remove shadow/border */}
-                                    <div tabIndex={0} className="m-1 btn bg-white border border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
+                                    <div tabIndex={0} className="m-1 btn border bg-transparent border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
