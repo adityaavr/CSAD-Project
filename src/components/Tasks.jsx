@@ -170,7 +170,6 @@ const Tasks = () => {
     };
 
 // Function to update a task in the local state
-    // Function to move a task to its new category in the local state
     const updateTaskInLocalState = (updatedTask) => {
         setTaskData((prevTaskData) => {
             // Remove the task from its current category
@@ -261,20 +260,6 @@ const Tasks = () => {
             return null;
         }
     }
-
-
-    // Example of updating local state after Firestore update (simplified)
-    const updateLocalStateWithNewStatus = (taskId, newStatus) => {
-        setTaskData(prevTaskData => prevTaskData.map(category => ({
-            ...category,
-            tasks: category.tasks.map(task => {
-                if (task.id === taskId) {
-                    return { ...task, status: newStatus }; // Update the status of the relevant task
-                }
-                return task;
-            })
-        })));
-    };
 
 
     const updateTaskStatusAndCategory = (taskId, newStatus) => {

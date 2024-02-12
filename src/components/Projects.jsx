@@ -79,6 +79,24 @@ const Projects = () => {
         setFormData(prevData => ({ ...prevData, tasks: newTasks }));
     };
 
+    const handleEditProject = async (projectId) => {
+        setEditProjectId(projectId);
+        const projectRef = doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId);
+        const projectSnap = await getDoc(projectRef);
+
+        if (projectSnap.exists()) {
+            const projectData = projectSnap.data();
+            const tasksRef = collection(db, `projects/${getAuth().currentUser.uid}/projects/${projectId}/tasks`);
+            const taskSnapshot = await getDocs(tasksRef);
+            const tasks = taskSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            setFormData({ ...projectData, tasks });
+            document.getElementById('my_modal_1').showModal();
+        } else {
+            console.log("No such project!");
+        }
+    };
+
     const handleFormSubmit = async (e) => {
         e.preventDefault();
 
@@ -97,35 +115,78 @@ const Projects = () => {
 
         try {
             if (editProjectId) {
+                // Update existing project (excluding tasks)
                 const projectRef = doc(db, `projects/${userId}/projects`, editProjectId);
-                await updateDoc(projectRef, formData);
+                await updateDoc(projectRef, {
+                    name: formData.name,
+                    tasks: formData.tasks.map((task) => ({
+                        name: task.name,
+                        priority: task.priority || "low",
+                        startDate: task.startDate || new Date().toISOString().split('T')[0],
+                        endDate: task.endDate || new Date().toISOString().split('T')[0],
+                        status: task.status || "To do",
+                    })),
+                });
+
+                // Handle tasks: Update existing ones and add new ones
+                const tasksRef = collection(db, `projects/${userId}/projects/${editProjectId}/tasks`);
+                for (const task of formData.tasks) {
+                    if (task.id) {
+                        const taskDocRef = doc(tasksRef, task.id);
+                        await updateDoc(taskDocRef, {
+                            name: task.name,
+                            priority: task.priority,
+                            startDate: task.startDate,
+                            endDate: task.endDate,
+                            status: task.status,
+                        });
+                    } else {
+                        await addDoc(tasksRef, {
+                            name: task.name,
+                            priority: task.priority,
+                            startDate: task.startDate,
+                            endDate: task.endDate,
+                            status: task.status,
+                        });
+                    }
+                }
             } else {
-                const projectDocRef = await addDoc(collection(db, `projects/${userId}/projects`), formData);
-                const projectId = projectDocRef.id;
-                const tasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
-                const taskAdditionPromises = formData.tasks.map(task => addDoc(tasksRef, task));
-                await Promise.all(taskAdditionPromises);
+                // Create a new project (excluding tasks)
+                const projectRef = await addDoc(collection(db, `projects/${userId}/projects`), {
+                    name: formData.name,
+                    tasks: formData.tasks.map((task) => ({
+                        name: task.name,
+                        priority: task.priority || "low",
+                        startDate: task.startDate || new Date().toISOString().split('T')[0],
+                        endDate: task.endDate || new Date().toISOString().split('T')[0],
+                        status: task.status || "To do",
+                    })),
+                });
+
+                // Add tasks to the new project
+                const tasksRef = collection(db, `projects/${userId}/projects/${projectRef.id}/tasks`);
+                formData.tasks.forEach(async (task) => {
+                    await addDoc(tasksRef, {
+                        name: task.name,
+                        priority: task.priority,
+                        startDate: task.startDate,
+                        endDate: task.endDate,
+                        status: task.status,
+                    });
+                });
             }
 
+            // Reset form and close modal after operation
             setFormData(initialFormData);
             document.getElementById('my_modal_1').close();
-            setEditProjectId(null); // Reset edit mode after form submit
+            setEditProjectId(null); // Reset edit mode after form submission
         } catch (error) {
             console.error("Error saving project:", error.message);
         }
     };
 
-    const handleEditProject = async (projectId) => {
-        setEditProjectId(projectId);
-        const projectRef = doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId);
-        const docSnap = await getDoc(projectRef);
-        if (docSnap.exists()) {
-            setFormData(docSnap.data());
-            document.getElementById('my_modal_1').showModal();
-        } else {
-            console.log("No such project!");
-        }
-    };
+
+
 
     const handleAddTask = () => {
         const newTask = { name: "", priority: "low", startDate: "", endDate: "", status: "To do" };
@@ -143,8 +204,17 @@ const Projects = () => {
     };
 
     const handleDeleteProject = async (projectId) => {
-        await deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId));
+        try {
+            // Delete the project from Firestore
+            await deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId));
+
+            // Update the local state to reflect the change
+            setProjects(prevProjects => prevProjects.filter(project => project.id !== projectId));
+        } catch (error) {
+            console.error("Error deleting project:", error);
+        }
     };
+
 
     return (
         <div>
@@ -260,20 +330,23 @@ const Projects = () => {
                     </div>
                     <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {projects.map((project, index) => (
-                            <div key={index} className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 relative">
-                                <div className="absolute top-4 right-4 flex space-x-2">
-                                    <button
-                                        onClick={() => handleEditProject(project.id)}
-                                        className="btn btn-xs btn-info"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteProject(project.id)}
-                                        className="btn btn-xs btn-error"
-                                    >
-                                        Delete
-                                    </button>
+                            <div key={index} className="bg-white p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
+                                <div className="dropdown dropdown-end absolute top-2 right-2">
+                                    {/* Remove background on hover by setting the same bg class and remove shadow/border */}
+                                    <div tabIndex={0} className="m-1 btn bg-white border border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                    {/* Ensure the dropdown content also has no border or shadow if not desired */}
+                                    <ul tabIndex={0} className="dropdown-content menu p-2 shadow rounded-box w-52 bg-white border border-transparent focus:outline-none focus:border-transparent hover:border-white">
+                                        <li>
+                                            <a onClick={() => handleEditProject(project.id)}>Edit</a>
+                                        </li>
+                                        <li>
+                                            <a onClick={() => handleDeleteProject(project.id)}>Delete</a>
+                                        </li>
+                                    </ul>
                                 </div>
                                 <h1 className="text-2xl font-semibold mb-4">{project.name}</h1>
                                 <ul className="list-disc pl-5 space-y-2">
@@ -286,6 +359,8 @@ const Projects = () => {
                             </div>
                         ))}
                     </div>
+
+
                 </div>
             )}
         </div>
