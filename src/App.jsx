@@ -10,13 +10,22 @@ import GanttChart from "./components/GanttChart.jsx";
 import Projects from "./components/Projects.jsx";
 import Navbar from "./components/Navbar.jsx";
 import ForgotPassword from "./components/ForgotPassword.jsx";
+import Profile from "./components/Profile.jsx";
+import Footer from "./components/Footer.jsx";
+import About from "./components/About.jsx";
 
 const App = () => {
     return (
         <Router>
             <Routes>
                 <Route path="/login" element={<Login />} />
-                <Route path="*" element={<Register />} />
+                <Route path="*" element={
+                    <div className="flex flex-col h-1">
+                        <Register />
+                        <About />
+                        <Footer />
+                    </div>
+                } />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/additional-details" element={<AdditionalDetails />} />
                 <Route path="/dashboard" element={
@@ -40,6 +49,12 @@ const App = () => {
                     <div className="flex flex-col h-1">
                         <Navbar />
                         <Projects />
+                    </div>
+                } />
+                <Route path="/profile" element={
+                    <div className="flex flex-col h-1">
+                        <Navbar />
+                        <Profile />
                     </div>
                 } />
                 {/* Fallback Route */}

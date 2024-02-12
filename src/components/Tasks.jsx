@@ -105,7 +105,7 @@ const Tasks = () => {
                         console.log('Categorized tasks:', categorizedTasks);
 
                         setTaskData(categorizedTasks);
-                        setLoading(false);
+                        setTimeout(() => setLoading(false), 1000);
                     }
                 });
 
@@ -308,22 +308,6 @@ const Tasks = () => {
 
             return newTaskData; // Return the updated task data
         });
-    };
-
-
-
-
-    const getColorClass = (status) => {
-        switch (status) {
-            case 'To do':
-                return 'bg-error';
-            case 'Doing':
-                return 'bg-warning';
-            case 'Done':
-                return 'bg-success';
-            default:
-                return '';
-        }
     };
 
     const TaskCategory = ({ category, index }) => {

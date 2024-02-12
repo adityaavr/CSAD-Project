@@ -3,6 +3,7 @@ import { getAuth, GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopu
 import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
+import GoogleLogo from '../assets/google_logo.png';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -108,6 +109,7 @@ const Login = () => {
                         </div>
                         <div className="divider">OR</div>
                         <div className="form-control">
+                            {/*<img src={GoogleLogo} alt="Google Logo" className="inline-block w-6 h-6 mr-2" />*/}
                             <button className="btn btn-accent" onClick={handleGoogleSignIn}>Login with Google</button>
                         </div>
                     </form>

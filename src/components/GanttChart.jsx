@@ -3,7 +3,6 @@ import { ViewMode, Gantt } from "gantt-task-react";
 import { ViewSwitcher } from "../GanttHelper/view-switcher.jsx";
 import {
     getStartEndDateForProject,
-    initTasks
 } from "../GanttHelper/GanttHelper.jsx";
 import "gantt-task-react/dist/index.css";
 import 'tailwindcss/tailwind.css';
@@ -12,10 +11,11 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import {collection, onSnapshot} from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import Tasks from "./Tasks.jsx";
+import {Link} from "react-router-dom";
 
 const GanttChart = () => {
     const [view, setView] = useState(ViewMode.Day);
-    const [tasks, setTasks] = useState(initTasks());
+    const [tasks, setTasks] = useState([]);
     const [isChecked, setIsChecked] = useState(true);
     const [loading, setLoading] = useState(true);
 
@@ -93,6 +93,7 @@ const GanttChart = () => {
             }
         }
         setTasks(newTasks);
+        setTimeout(() => setLoading(false), 1000);
     };
 
     const handleTaskDelete = (task) => {
@@ -138,6 +139,32 @@ const GanttChart = () => {
             });
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex justify-center items-center min-h-screen">
+                <span className="loading loading-infinity loading-lg"></span>
+            </div>
+        );
+    }
+
+    // Check if there are no tasks (projects) available
+    if (tasks.length === 0) {
+        return (
+            <div className="flex justify-center items-center min-h-screen" style={{ transform: 'translateY(-10%)', zIndex: -1000 }}>
+                <div className="card w-96 bg-primary text-primary-content">
+                    <div className="card-body">
+                        <h2 className="card-title">No Projects Found</h2>
+                        <p>Create a new project on the projects page to see your Gantt chart.</p>
+                        <div className="card-actions justify-end">
+                            <button className="btn"><Link to="/projects">Create Project</Link></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
 
 
     return (
