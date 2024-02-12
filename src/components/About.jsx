@@ -8,16 +8,202 @@ const About = () => {
         setActiveWindow(windowName);
     };
 
+    const renderProjectsMiniUI = () => {
+        return (
+            <div>
+                {/* "Create Project" button placeholder */}
+                <div className="text-center mb-4">
+                    <button className="btn btn-sm btn-primary">Create Project</button>
+                </div>
+
+                {/* Grid container for project cards */}
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {/* Simulated project card 1 */}
+                    <div className="bg-base-100 rounded-lg shadow p-4">
+                        <h4 className="text-md font-semibold">Example Project 1</h4>
+                        <ul className="list-disc pl-5 mt-2 text-sm">
+                            <li>
+                                <span className="font-medium">Task 1</span> - <span className="text-gray-500">Medium - Jan 1 to Jan 7</span>
+                            </li>
+                            <li>
+                                <span className="font-medium">Task 2</span> - <span className="text-gray-500">High - Jan 8 to Jan 14</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Simulated project card 2 */}
+                    <div className="bg-base-100 rounded-lg shadow p-4">
+                        <h4 className="text-md font-semibold">Example Project 2</h4>
+                        <ul className="list-disc pl-5 mt-2 text-sm">
+                            <li>
+                                <span className="font-medium">Task 3</span> - <span className="text-gray-500">Low - Jan 15 to Jan 21</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div className="bg-base-100 rounded-lg shadow p-4">
+                        <h4 className="text-md font-semibold">Example Project 2</h4>
+                        <ul className="list-disc pl-5 mt-2 text-sm">
+                            <li>
+                                <span className="font-medium">Task 3</span> - <span className="text-gray-500">Low - Jan 15 to Jan 21</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* More project cards as needed... */}
+                </div>
+            </div>
+        );
+    };
+
+    const renderTasksMiniUI = () => {
+        // Example tasks for the miniature UI
+        const exampleTasks = [
+            {
+                status: 'To do',
+                tasks: [
+                    { id: '1', name: 'Task 1', project: 'Project A' },
+                    { id: '2', name: 'Task 2', project: 'Project B' }
+                ]
+            },
+            {
+                status: 'Doing',
+                tasks: [
+                    { id: '3', name: 'Task 3', project: 'Project C' }
+                ]
+            },
+            {
+                status: 'Done',
+                tasks: [
+                    { id: '4', name: 'Task 4', project: 'Project D' }
+                ]
+            }
+        ];
+
+        // Function to determine the background color based on the task status
+        const getBackgroundColor = (status) => {
+            switch (status) {
+                case 'To do': return 'bg-red-100';
+                case 'Doing': return 'bg-yellow-100';
+                case 'Done': return 'bg-green-100';
+                default: return 'bg-gray-100';
+            }
+        };
+
+        return (
+            <div className="grid grid-cols-3 gap-4">
+                {exampleTasks.map((category, index) => (
+                    <div key={index} className="p-4 rounded-lg shadow bg-base-100">
+                        <h3 className="font-semibold text-lg mb-2">{category.status}</h3>
+                        <div className="space-y-2">
+                            {category.tasks.map((task) => (
+                                <div key={task.id} className={`p-2 rounded-lg shadow-sm ${getBackgroundColor(category.status)}`}>
+                                    <h4 className="font-semibold">{task.name}</h4>
+                                    <p className="text-sm text-gray-700">Project: {task.project}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
+    const renderDashboardMiniUI = () => {
+        // Placeholder data for the miniature version
+        const taskProgress = { todo: 30, doing: 20, done: 50 };
+        const upcomingTasks = ['Task A', 'Task B', 'Task C'];
+        const projectOverview = { totalProjects: 5, planning: 2, inProgress: 2, completed: 1 };
+
+        return (
+            <div className="flex flex-row gap-4 py-6">
+                {/* Task Progress Section */}
+                <div className="bg-base-100 rounded-lg p-2">
+                    <h4 className="text-sm font-bold">Tasks Progress</h4>
+                    <div className="flex justify-between text-xs">
+                        <span>To do: {taskProgress.todo}%</span>
+                        <span>Doing: {taskProgress.doing}%</span>
+                        <span>Done: {taskProgress.done}%</span>
+                    </div>
+                    {/* Simplified progress bar representation */}
+                    <div className="h-2 w-full bg-gray-200 rounded-full mt-1">
+                        <div className="bg-blue-500 h-full rounded-full" style={{ width: `${taskProgress.done}%` }}></div>
+                    </div>
+                </div>
+
+                {/* Upcoming Tasks Section */}
+                <div className="bg-base-100 rounded-lg p-2">
+                    <h4 className="text-sm font-bold">Upcoming Tasks</h4>
+                    <ul className="list-disc pl-4 text-xs">
+                        {upcomingTasks.map((task, index) => (
+                            <li key={index}>{task}</li>
+                        ))}
+                    </ul>
+                </div>
+
+                {/* Project Overview Section */}
+                <div className="bg-base-100 rounded-lg p-2">
+                    <h4 className="text-sm font-bold">Project Overview</h4>
+                    <div className="text-xs">
+                        <p>Total Projects: <strong>{projectOverview.totalProjects}</strong></p>
+                        <p>Planning: <strong>{projectOverview.planning}</strong></p>
+                        <p>In Progress: <strong>{projectOverview.inProgress}</strong></p>
+                        <p>Completed: <strong>{projectOverview.completed}</strong></p>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderGanttChartMiniUI = () => {
+        // Placeholder tasks for display
+        const tasks = [
+            { name: 'Design Phase', start: 1, duration: 2, color: 'bg-blue-500' },
+            { name: 'Development Phase', start: 3, duration: 3, color: 'bg-green-500' },
+            { name: 'Testing Phase', start: 6, duration: 2, color: 'bg-red-500' },
+        ];
+
+        // Generate the time axis (days)
+        const timeAxis = Array.from({ length: 8 }, (_, i) => i + 1);
+
+        return (
+            <div className="bg-base-100 rounded-lg shadow p-4">
+                <div className="flex justify-between text-xs mb-2">
+                    {timeAxis.map(day => (
+                        <div key={day} className="text-center">{`Day ${day}`}</div>
+                    ))}
+                </div>
+                <div className="space-y-2">
+                    {tasks.map((task, index) => (
+                        <div key={index} className="flex items-center">
+                            <div className="text-xs font-semibold w-28 mr-2">{task.name}</div>
+                            <div className="flex flex-grow h-4 bg-gray-200 rounded">
+                                <div
+                                    className={`${task.color} rounded`}
+                                    style={{
+                                        marginLeft: `${task.start * 12.5}%`, // Adjusted to align with the time axis
+                                        width: `${task.duration * 12.5}%`, // Adjusted to represent task duration
+                                    }}
+                                ></div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+
     const renderWindowContent = () => {
         switch (activeWindow) {
             case 'projects':
-                return "Projects content!";
+                return renderProjectsMiniUI();
             case 'tasks':
-                return "Tasks content!";
+                return renderTasksMiniUI();
             case 'dashboard':
-                return "Dashboard content!";
+                return renderDashboardMiniUI();
             case 'ganttChart':
-                return "Gantt Chart content!";
+                return renderGanttChartMiniUI();
             default:
                 return "Hover over an icon!";
         }
