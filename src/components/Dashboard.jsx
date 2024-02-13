@@ -55,8 +55,19 @@ const Dashboard = () => {
                 }
             }
 
+            // Calculate the latest end date for each project
+            const projectsWithEndDate = allProjects.map(project => {
+                const projectTasks = allTasks.filter(task => task.projectId === project.id);
+                const latestEndDate = projectTasks.reduce((latest, currentTask) => {
+                    const currentEndDate = new Date(currentTask.endDate);
+                    return latest > currentEndDate ? latest : currentEndDate;
+                }, new Date(0)); // Start with the oldest possible date
+                const timeLeft = remainingTime(latestEndDate);
+                return { ...project, latestEndDate, remainingTime: timeLeft };
+            });
+
             // Update state with fetched data
-            setProjects(projectOptions);
+            setProjects([{ id: 'all', name: 'All Projects' }, ...projectsWithEndDate]);
             setAllTasks(allTasks);
 
             const counts = allTasks.reduce((acc, task) => {
@@ -171,6 +182,36 @@ const Dashboard = () => {
         return endDate >= today && endDate <= nextWeek;
     };
 
+    const remainingTime = (endDate) => {
+        const now = new Date();
+        const timeDiff = endDate - now;
+        if (timeDiff < 0) {
+            return null; // Past date
+        }
+
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+
+        return { days, hours, minutes, seconds };
+    };
+
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            // Update the remaining time for each project
+            setProjects(currentProjects => currentProjects.map(project => {
+                if (project.latestEndDate) {
+                    const updatedTime = remainingTime(new Date(project.latestEndDate));
+                    return { ...project, remainingTime: updatedTime };
+                }
+                return project;
+            }));
+        }, 1000);
+
+        return () => clearInterval(intervalId);
+    }, []);
+
     return (
         <div>
             {loading && (
@@ -265,111 +306,38 @@ const Dashboard = () => {
                             )}
                         </div>
                     </div>
-                    {/*<div className="card max-w-sm w-full shadow-2xl p-4 md:p-6">*/}
-                    {/*    <div className="flex justify-center items-center">*/}
-                    {/*        <h2 className="text-xl font-bold leading-none p-4">Project Overview</h2>*/}
-                    {/*    </div>*/}
-                    {/*    <div className="p-4">*/}
-                    {/*        <p>Total Projects: <strong>{projects.length - 1}</strong></p>*/}
-                    {/*        /!* Example of categorizing projects by status - you might need to adjust based on your data structure *!/*/}
-                    {/*        <p>Planning: <strong>{projects.filter(project => project.status === 'Planning').length}</strong></p>*/}
-                    {/*        <p>In Progress: <strong>{projects.filter(project => project.status === 'In Progress').length}</strong></p>*/}
-                    {/*        <p>Completed: <strong>{projects.filter(project => project.status === 'Completed').length}</strong></p>*/}
-                    {/*    </div>*/}
-                    {/*</div>*/}
-                    <div className="card max-w-sm w-full shadow-2xl p-4 md:p-6">
-                        <div className="flex justify-center items-center">
-                            <h2 className="text-xl font-bold leading-none p-4">Project Overview</h2>
+                    <div className="card max-w-xl w-full bg-base-100 shadow-xl p-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">Project Deadlines</h2>
                         </div>
-                        <div className="card bg-base-100 shadow-xl" style={{ background: "grey", height: "430px", padding: "10px" }}>
-                            <div className="card-scroll-container" style={{ maxHeight: "430px", overflowY: "auto" }}>
-                                <div className="vertical-accordion" style={{ marginRight: "auto", marginLeft: "auto", marginBottom: "10px" }}>
-                                    <p style={{ marginBottom: "10px", fontWeight: "bolder", textDecoration: "underline" }}>Pending Projects: </p>
-                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
-                                        <input type="checkbox" className="peer" />
-                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
-                                            CSAD
-                                            <div className="grid grid-flow-col gap-4 text-center auto-cols-max" style={{ marginTop: "5px", height: "65px", marginBottom: "5px" }}>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":10}}></span>
-                                                    </span>
-                                                    days
+                        <div className="overflow-y-auto max-h-96" style={{ padding: "10px" }}>
+                            {projects.filter(project => project.id !== 'all').map((project, index) => (
+                                <div key={index} className="border rounded-box border-base-300 mb-4 p-4">
+                                    <div className="text-lg font-medium">{project.name}</div>
+                                    {project.latestEndDate && (
+                                        <div className="grid grid-flow-col gap-4 text-center mt-4">
+                                            <div className="stats shadow">
+                                                <div className="stat">
+                                                    <div className="stat-title">Days</div>
+                                                    <div className="stat-value text-3xl">{project.remainingTime.days}</div>
                                                 </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":5}}></span>
-                                                    </span>
-                                                    hours
+                                                <div className="stat">
+                                                    <div className="stat-title">Hours</div>
+                                                    <div className="stat-value text-3xl">{project.remainingTime.hours}</div>
                                                 </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":20}}></span>
-                                                    </span>
-                                                    min
+                                                <div className="stat">
+                                                    <div className="stat-title">Minutes</div>
+                                                    <div className="stat-value text-3xl">{project.remainingTime.minutes}</div>
                                                 </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":47}}></span>
-                                                    </span>
-                                                    sec
+                                                <div className="stat">
+                                                    <div className="stat-title">Seconds</div>
+                                                    <div className="stat-value text-3xl">{project.remainingTime.seconds}</div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
-                                            <p>Task 1: Frontend</p>
-                                            <hr style={{ marginBottom: "5px", marginTop: "2px", borderColor: "black" }}/>
-                                            <p>Task 2: Backend</p>
-                                        </div>
-                                    </div>
-                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
-                                        <input type="checkbox" className="peer" />
-                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
-                                            Mobile App Development
-                                            <div className="grid grid-flow-col gap-4 text-center auto-cols-max" style={{ marginTop: "5px", height: "65px", marginBottom: "5px" }}>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":10}}></span>
-                                                    </span>
-                                                    days
-                                                </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":5}}></span>
-                                                    </span>
-                                                    hours
-                                                </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":20}}></span>
-                                                    </span>
-                                                    min
-                                                </div>
-                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
-                                                    <span className="countdown font-mono text-3xl">
-                                                        <span style={{"--value":47}}></span>
-                                                    </span>
-                                                    sec
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
-                                            <p>Task 1: UI Design</p>
-                                        </div>
-                                    </div>
-                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
-                                        <input type="checkbox" className="peer" />
-                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
-                                            Advanced Mathematics
-                                        </div>
-                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
-                                            <p>Task 1: Integration</p>
-                                            <hr style={{ marginBottom: "5px", marginTop: "2px", borderColor: "black" }}/>
-                                            <p>Task 2: Vectors</p>
-                                        </div>
-                                    </div>
+                                    )}
                                 </div>
-                            </div>
+                            ))}
                         </div>
                     </div>
                 </div>
