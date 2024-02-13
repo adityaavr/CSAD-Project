@@ -198,19 +198,23 @@ const Dashboard = () => {
     };
 
     useEffect(() => {
-        const intervalId = setInterval(() => {
-            // Update the remaining time for each project
-            setProjects(currentProjects => currentProjects.map(project => {
-                if (project.latestEndDate) {
-                    const updatedTime = remainingTime(new Date(project.latestEndDate));
-                    return { ...project, remainingTime: updatedTime };
-                }
-                return project;
-            }));
-        }, 1000);
+        // Only set up the interval if there are projects
+        if (projects.length > 1) {
+            const intervalId = setInterval(() => {
+                // Update the remaining time for each project
+                setProjects(currentProjects => currentProjects.map(project => {
+                    if (project.latestEndDate) {
+                        const updatedTime = remainingTime(new Date(project.latestEndDate));
+                        return { ...project, remainingTime: updatedTime };
+                    }
+                    return project;
+                }));
+            }, 1000);
 
-        return () => clearInterval(intervalId);
-    }, []);
+            // Clear the interval when the component unmounts or projects change
+            return () => clearInterval(intervalId);
+        }
+    }, [projects]); // Dependency on projects ensures this effect runs when projects update
 
     return (
         <div>
