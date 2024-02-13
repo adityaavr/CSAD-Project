@@ -353,7 +353,7 @@ const Projects = () => {
                                                     className="input input-bordered w-full max-w-xs"
                                                     required
                                                 />
-                                                <button className="btn btn-circle btn-error" onClick={() => handleRemoveTask(index)}><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                                <button className="btn btn-circle btn-error ml-5 align-middle" onClick={() => handleRemoveTask(index)}><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                                             </label>
                                             <label className="block mb-2">
                                                 <div>
@@ -378,6 +378,7 @@ const Projects = () => {
                                                     value={task.endDate || ""}
                                                     onChange={(e) => handleTaskInputChange(index, e)}
                                                     className="input input-bordered w-full max-w-xs"
+                                                    min={task.startDate}
                                                     required
                                                 />
                                             </label>
