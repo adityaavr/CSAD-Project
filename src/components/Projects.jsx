@@ -3,36 +3,36 @@ import {
     collection,
     getDocs,
     addDoc,
-    onSnapshot,
     doc,
     deleteDoc,
     updateDoc,
-    getDoc
+    getDoc,
+    arrayUnion,
+    arrayRemove,
+    query,
+    where
 } from "firebase/firestore";
+import { collectionGroup } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { db } from "../firebaseConfig.js";
-import async from "async";
 
 const Projects = () => {
     const [projects, setProjects] = useState([]);
     const initialFormData = {
         name: "",
         tasks: [{ name: "", priority: "low", startDate: "", endDate: "", status: "To do" }],
+        collaborators: []
     };
     const [formData, setFormData] = useState(initialFormData);
     const [loading, setLoading] = useState(true);
     const [editProjectId, setEditProjectId] = useState(null);
     const [users, setUsers] = useState([]);
     const [showAddCollaboratorsModal, setShowAddCollaboratorsModal] = useState(false);
+    const [showCollaboratorsModal, setShowCollaboratorsModal] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-
-    const handleSearchChange = (e) => {
-        setSearchTerm(e.target.value);
-    };
-
-    const filteredUsers = searchTerm === '' ? [] : users.filter((user) =>
-        user.username.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const [isClosing, setIsClosing] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
 
     useEffect(() => {
         const fetchUsers = async () => {
@@ -41,58 +41,98 @@ const Projects = () => {
             const userList = userData.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
-            }));
+            })).filter(user => user.id !== currentUser?.uid); // Exclude the current user from the list
             setUsers(userList);
         };
 
-        fetchUsers();
+        const fetchProjects = async (user) => {
+            const ownedProjectsRef = collection(db, `projects/${user.uid}/projects`);
+            const ownedProjectsSnap = await getDocs(ownedProjectsRef);
+            let projects = ownedProjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        const unsubscribeAuthStateChanged = onAuthStateChanged(getAuth(), (user) => {
-            console.log("Auth state changed:", user);
+            // Query for projects where the user is a collaborator
+            const allProjectsRef = collectionGroup(db, "projects");
+            const collaboratorProjectsSnap = await getDocs(query(allProjectsRef, where("collaborators", "array-contains", user.uid)));
+
+            collaboratorProjectsSnap.forEach(doc => {
+                // Avoid duplicates in case the user is both owner and collaborator
+                if (!projects.some(p => p.id === doc.id)) {
+                    projects.push({ id: doc.id, ...doc.data() });
+                }
+            });
+
+            setProjects(projects);
+            setLoading(false);
+        };
+
+        const auth = getAuth();
+        onAuthStateChanged(auth, (user) => {
             if (user) {
-                const projectsRef = collection(db, `projects/${user.uid}/projects`);
-                const unsubscribe = onSnapshot(projectsRef, (snapshot) => {
-                    console.log("Fetching projects");
-                    const fetchedProjects = snapshot.docs.map((doc) => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    }));
-                    if (fetchedProjects.length > 0) {
-                        const userProjects = fetchedProjects
-                        setProjects(userProjects);
-                    } else {
-                        console.log("No projects found");
-                    }
-                    setLoading(false);
-                }, (error) => {
-                    console.error("Error fetching projects:", error);
-                    setLoading(false);
-                });
-                return unsubscribe;
-            } else {
-                setLoading(false);
+                setCurrentUser(user); // Set the current user
+                fetchUsers();
+                fetchProjects(user);
             }
         });
+    }, [currentUser?.uid]);
 
-        return () => unsubscribeAuthStateChanged();
-    }, []);
 
-    // State to manage the fade-out effect
-    const [isClosing, setIsClosing] = useState(false);
-
-    // Function to open the modal
-    const handleOpenAddCollaborators = () => {
-        setIsClosing(false);
-        setShowAddCollaboratorsModal(true);
+    const handleSearchChange = (e) => {
+        setSearchTerm(e.target.value.trim());
     };
 
-    // Function to close the modal with a fade-out effect
-    const handleCloseAddCollaborators = () => {
-        setIsClosing(true); // Trigger the fade-out effect
-        setTimeout(() => {
-            setShowAddCollaboratorsModal(false); // After the animation, remove the modal from the DOM
-        }, 300); // The timeout
-    }
+    const filteredUsers = searchTerm === '' ? [] : users.filter((user) =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) && user.id !== currentUser?.uid
+    );
+
+    const addCollaborator = async (userId) => {
+        if (!selectedProjectId) return;
+
+        const projectRef = doc(db, `projects/${getAuth().currentUser.uid}/projects`, selectedProjectId);
+
+        try {
+            await updateDoc(projectRef, {
+                collaborators: arrayUnion(userId)
+            });
+            console.log("Collaborator added successfully");
+        } catch (error) {
+            console.error("Error adding collaborator: ", error);
+        }
+    };
+
+    const removeCollaborator = async (userId) => {
+        if (!selectedProjectId) return;
+
+        const projectRef = doc(db, `projects/${getAuth().currentUser.uid}/projects`, selectedProjectId);
+
+        try {
+            await updateDoc(projectRef, {
+                collaborators: arrayRemove(userId)
+            });
+            console.log("Collaborator removed successfully");
+        } catch (error) {
+            console.error("Error removing collaborator: ", error);
+        }
+    };
+
+
+    const handleViewCollaborators = async (projectId) => {
+        setIsClosing(false);
+        setSelectedProjectId(projectId); // Set the selectedProjectId for viewing collaborators
+        setShowCollaboratorsModal(true);
+
+        const projectRef = doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId);
+        const projectSnap = await getDoc(projectRef);
+
+        if (projectSnap.exists()) {
+            const projectData = projectSnap.data();
+            // Filter the users to only include those who are collaborators on this project
+            const projectCollaborators = users.filter(user => projectData.collaborators.includes(user.id));
+            setUsers(projectCollaborators);
+        } else {
+            console.log("No such project or no collaborators found!");
+            setUsers([]);
+        }
+    };
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -167,6 +207,7 @@ const Projects = () => {
                         endDate: task.endDate || new Date().toISOString().split('T')[0],
                         status: task.status || "To do",
                     })),
+                    collaborators: projects.find(p => p.id === editProjectId)?.collaborators || []
                 });
 
                 // Handle tasks: Update existing ones and add new ones
@@ -202,11 +243,12 @@ const Projects = () => {
                         endDate: task.endDate || new Date().toISOString().split('T')[0],
                         status: task.status || "To do",
                     })),
+                    collaborators: []
                 });
 
                 // Add tasks to the new project
                 const tasksRef = collection(db, `projects/${userId}/projects/${projectRef.id}/tasks`);
-                formData.tasks.forEach(async (task) => {
+                for (const task of formData.tasks) {
                     await addDoc(tasksRef, {
                         name: task.name,
                         priority: task.priority,
@@ -214,7 +256,7 @@ const Projects = () => {
                         endDate: task.endDate,
                         status: task.status,
                     });
-                });
+                }
             }
 
             // Reset form and close modal after operation
@@ -225,8 +267,6 @@ const Projects = () => {
             console.error("Error saving project:", error.message);
         }
     };
-
-
 
 
     const handleAddTask = () => {
@@ -246,16 +286,17 @@ const Projects = () => {
 
     const handleDeleteProject = async (projectId) => {
         try {
-            // Delete the project from Firestore
             await deleteDoc(doc(db, `projects/${getAuth().currentUser.uid}/projects`, projectId));
-
-            // Update the local state to reflect the change
             setProjects(prevProjects => prevProjects.filter(project => project.id !== projectId));
         } catch (error) {
             console.error("Error deleting project:", error);
         }
     };
 
+    const handleOpenAddCollaborators = (projectId) => {
+        setSelectedProjectId(projectId);
+        setShowAddCollaboratorsModal(true);
+    };
 
     return (
         <div>
@@ -270,9 +311,9 @@ const Projects = () => {
                         <button
                             className="btn btn-primary mb-4"
                             onClick={() => {
-                                setFormData(initialFormData); // Reset form for new project
-                                setEditProjectId(null); // Clear edit mode
-                                document.getElementById('my_modal_1').showModal(); // Open the modal
+                                setFormData(initialFormData);
+                                setEditProjectId(null);
+                                document.getElementById('my_modal_1').showModal();
                             }}
                         >
                             Create Project
@@ -312,7 +353,7 @@ const Projects = () => {
                                                     className="input input-bordered w-full max-w-xs"
                                                     required
                                                 />
-                                                <button className="btn btn-circle" onClick={() => handleRemoveTask(index)}><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+                                                <button className="btn btn-circle btn-error" onClick={() => handleRemoveTask(index)}><svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                                             </label>
                                             <label className="block mb-2">
                                                 <div>
@@ -373,15 +414,15 @@ const Projects = () => {
                         {projects.map((project, index) => (
                             <div key={index} className="p-6 rounded-xl shadow-md transition-shadow duration-300 relative">
                                 {/* New dropdown for collaborators to the left of the existing dropdown */}
-                                <div className="dropdown absolute top-2 right-16">
+                                <div className="dropdown absolute top-2 right-16" style={{zIndex: 10}}>
                                     <label tabIndex={0} className="m-1 btn border bg-transparent border-transparent hover:bg-white hover:shadow-none" style={{ boxShadow: 'none' }}>
-                                        <svg className="w-6 h-6 text-gray-800 dark:text-white" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="w-6 h-6 text-gray-800" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <path stroke="currentColor" strokeLinecap="round" strokeWidth="2" d="M4.5 17H4a1 1 0 0 1-1-1 3 3 0 0 1 3-3h1m0-3a2.5 2.5 0 1 1 2-4.5M19.5 17h.5c.6 0 1-.4 1-1a3 3 0 0 0-3-3h-1m0-3a2.5 2.5 0 1 0-2-4.5m.5 13.5h-7a1 1 0 0 1-1-1 3 3 0 0 1 3-3h3a3 3 0 0 1 3 3c0 .6-.4 1-1 1Zm-1-9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z"/>
                                         </svg>
                                     </label>
                                     <ul tabIndex={0} className="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52">
-                                        <li><a>View collaborators</a></li>
-                                        <li><a onClick={() => handleOpenAddCollaborators()}>Add collaborators</a></li>
+                                        <li><a onClick={() => handleViewCollaborators(project.id)}>View collaborators</a></li>
+                                        <li><a onClick={() => handleOpenAddCollaborators(project.id)}>Add collaborators</a></li>
                                     </ul>
                                 </div>
 
@@ -402,13 +443,20 @@ const Projects = () => {
                                     </ul>
                                 </div>
                                 <h1 className="text-2xl font-semibold mb-4">{project.name}</h1>
-                                <ul className="list-disc pl-5 space-y-2">
+
+                                <div className="space-y-4">
                                     {project.tasks.map((task, taskIndex) => (
-                                        <li key={taskIndex} className="text-sm">
-                                            <span className="font-medium">{task.name}</span> - <span className="text-gray-600">{task.priority}</span> - <span className="text-gray-500">{task.startDate} to {task.endDate}</span>
-                                        </li>
+                                        <div key={taskIndex} className="p-4 rounded-lg shadow-sm bg-gray-50">
+                                            <h3 className="text-lg font-medium">{task.name}</h3>
+                                            <div className="mt-2 text-sm text-gray-600">
+                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mr-2 ${task.priority}`}>
+                        {task.priority.toUpperCase()}
+                    </span>
+                                                <span>{task.startDate} to {task.endDate}</span>
+                                            </div>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         ))}
 
@@ -445,16 +493,43 @@ const Projects = () => {
                                     <div>
                                         <div>{user.name}</div>
                                         <div className="text-sm text-gray-600">@{user.username}</div>
+                                        <button className="btn btn-xs btn-primary" onClick={() => addCollaborator(user.id)}>Add</button>
                                     </div>
                                 </li>
                             ))}
                         </ul>
                         <div className="modal-action">
-                            <button className="btn btn-primary" onClick={handleCloseAddCollaborators}>Close</button>
+                            <button className="btn btn-primary" onClick={() => setShowAddCollaboratorsModal(false)}>Close</button>
                         </div>
                     </div>
                 </div>
             )}
+            {showCollaboratorsModal && (
+                <div
+                    className={`modal ${isClosing ? 'fade-out' : 'modal-open'} modal-bottom sm:modal-middle`}
+                    onAnimationEnd={() => isClosing && setShowCollaboratorsModal(false)}
+                >
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">Current Collaborators</h3>
+                        <ul className="overflow-auto h-64">
+                            {users.map(user => (
+                                <li key={user.id} className="flex items-center gap-4 p-2 border-b">
+                                    <img src={user.profileImageUrl || 'default-profile.png'} alt="Profile" className="w-10 h-10 rounded-full" />
+                                    <div>
+                                        <div>{user.name}</div>
+                                        <div className="text-sm text-gray-600">@{user.username}</div>
+                                        <button className="btn btn-xs btn-error" onClick={() => removeCollaborator(user.id)}>Remove</button>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                        <div className="modal-action">
+                            <button className="btn btn-primary" onClick={() => setShowCollaboratorsModal(false)}>Close</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

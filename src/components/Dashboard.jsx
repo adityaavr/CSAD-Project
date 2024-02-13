@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {getAuth, onAuthStateChanged} from 'firebase/auth';
-import { collection, getDocs } from 'firebase/firestore';
+import {collection, collectionGroup, getDocs, query, where} from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import ApexCharts from 'apexcharts';
 import FloatingSpheresAnimation from "./FloatingSphereAnimation.jsx";
@@ -19,25 +19,43 @@ const Dashboard = () => {
 
     useEffect(() => {
         const fetchProjectsAndTasks = async (userId) => {
-            const projectsRef = collection(db, `projects/${userId}/projects`);
-            const projectsSnapshot = await getDocs(projectsRef);
+            // Fetch owned projects
+            const ownedProjectsRef = collection(db, `projects/${userId}/projects`);
+            const ownedProjectsSnapshot = await getDocs(ownedProjectsRef);
+
+            let allProjects = ownedProjectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), owner: userId }));
+
+            // Fetch projects where the user is a collaborator
+            const allProjectsRef = collectionGroup(db, "projects");
+            const collaboratorProjectsQuery = query(allProjectsRef, where("collaborators", "array-contains", userId));
+            const collaboratorProjectsSnapshot = await getDocs(collaboratorProjectsQuery);
+
+            collaboratorProjectsSnapshot.forEach(doc => {
+                // Avoid duplicates in case the user is both owner and collaborator
+                if (!allProjects.find(project => project.id === doc.id)) {
+                    allProjects.push({ id: doc.id, ...doc.data(), owner: doc.ref.parent.parent.id }); // Include the owner's UID
+                }
+            });
 
             let allTasks = [];
             let projectOptions = [{ id: 'all', name: 'All Projects' }];
-            for (const projectDoc of projectsSnapshot.docs) {
-                const projectId = projectDoc.id;
-                const projectName = projectDoc.data().name;
+
+            // Iterate over all projects to fetch tasks
+            for (const project of allProjects) {
+                const projectId = project.id;
+                const projectName = project.name;
                 projectOptions.push({ id: projectId, name: projectName });
 
                 if (selectedProject === 'all' || selectedProject === projectId) {
-                    const tasksRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
+                    const tasksRef = collection(db, `projects/${project.owner}/projects/${projectId}/tasks`);
                     const tasksSnapshot = await getDocs(tasksRef);
                     tasksSnapshot.forEach((doc) => {
-                        allTasks.push({ ...doc.data(), projectId: projectId });
+                        allTasks.push({ ...doc.data(), projectId: projectId, projectName: projectName });
                     });
                 }
             }
 
+            // Update state with fetched data
             setProjects(projectOptions);
             setAllTasks(allTasks);
 
@@ -69,6 +87,7 @@ const Dashboard = () => {
 
         return () => unsubscribe();
     }, [auth, selectedProject]);
+
 
     useEffect(() => {
         const getChartOptions = () => {
@@ -246,19 +265,113 @@ const Dashboard = () => {
                             )}
                         </div>
                     </div>
+                    {/*<div className="card max-w-sm w-full shadow-2xl p-4 md:p-6">*/}
+                    {/*    <div className="flex justify-center items-center">*/}
+                    {/*        <h2 className="text-xl font-bold leading-none p-4">Project Overview</h2>*/}
+                    {/*    </div>*/}
+                    {/*    <div className="p-4">*/}
+                    {/*        <p>Total Projects: <strong>{projects.length - 1}</strong></p>*/}
+                    {/*        /!* Example of categorizing projects by status - you might need to adjust based on your data structure *!/*/}
+                    {/*        <p>Planning: <strong>{projects.filter(project => project.status === 'Planning').length}</strong></p>*/}
+                    {/*        <p>In Progress: <strong>{projects.filter(project => project.status === 'In Progress').length}</strong></p>*/}
+                    {/*        <p>Completed: <strong>{projects.filter(project => project.status === 'Completed').length}</strong></p>*/}
+                    {/*    </div>*/}
+                    {/*</div>*/}
                     <div className="card max-w-sm w-full shadow-2xl p-4 md:p-6">
                         <div className="flex justify-center items-center">
                             <h2 className="text-xl font-bold leading-none p-4">Project Overview</h2>
                         </div>
-                        <div className="p-4">
-                            <p>Total Projects: <strong>{projects.length - 1}</strong></p>
-                            {/* Example of categorizing projects by status - you might need to adjust based on your data structure */}
-                            <p>Planning: <strong>{projects.filter(project => project.status === 'Planning').length}</strong></p>
-                            <p>In Progress: <strong>{projects.filter(project => project.status === 'In Progress').length}</strong></p>
-                            <p>Completed: <strong>{projects.filter(project => project.status === 'Completed').length}</strong></p>
+                        <div className="card bg-base-100 shadow-xl" style={{ background: "grey", height: "430px", padding: "10px" }}>
+                            <div className="card-scroll-container" style={{ maxHeight: "430px", overflowY: "auto" }}>
+                                <div className="vertical-accordion" style={{ marginRight: "auto", marginLeft: "auto", marginBottom: "10px" }}>
+                                    <p style={{ marginBottom: "10px", fontWeight: "bolder", textDecoration: "underline" }}>Pending Projects: </p>
+                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
+                                        <input type="checkbox" className="peer" />
+                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
+                                            CSAD
+                                            <div className="grid grid-flow-col gap-4 text-center auto-cols-max" style={{ marginTop: "5px", height: "65px", marginBottom: "5px" }}>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":10}}></span>
+                                                    </span>
+                                                    days
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":5}}></span>
+                                                    </span>
+                                                    hours
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":20}}></span>
+                                                    </span>
+                                                    min
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":47}}></span>
+                                                    </span>
+                                                    sec
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
+                                            <p>Task 1: Frontend</p>
+                                            <hr style={{ marginBottom: "5px", marginTop: "2px", borderColor: "black" }}/>
+                                            <p>Task 2: Backend</p>
+                                        </div>
+                                    </div>
+                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
+                                        <input type="checkbox" className="peer" />
+                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
+                                            Mobile App Development
+                                            <div className="grid grid-flow-col gap-4 text-center auto-cols-max" style={{ marginTop: "5px", height: "65px", marginBottom: "5px" }}>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":10}}></span>
+                                                    </span>
+                                                    days
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":5}}></span>
+                                                    </span>
+                                                    hours
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":20}}></span>
+                                                    </span>
+                                                    min
+                                                </div>
+                                                <div className="flex flex-col p-2 bg-neutral rounded-box text-neutral-content" style={{ height: "70px"}}>
+                                                    <span className="countdown font-mono text-3xl">
+                                                        <span style={{"--value":47}}></span>
+                                                    </span>
+                                                    sec
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
+                                            <p>Task 1: UI Design</p>
+                                        </div>
+                                    </div>
+                                    <div className="collapse collapse-arrow bg-base-200" style={{ marginBottom: "10px" }}>
+                                        <input type="checkbox" className="peer" />
+                                        <div className="collapse-title bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content" style={{ fontWeight: "bold" }}>
+                                            Advanced Mathematics
+                                        </div>
+                                        <div className="collapse-content bg-primary text-primary-content peer-checked:bg-secondary peer-checked:text-secondary-content">
+                                            <p>Task 1: Integration</p>
+                                            <hr style={{ marginBottom: "5px", marginTop: "2px", borderColor: "black" }}/>
+                                            <p>Task 2: Vectors</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-
                 </div>
             )}
         </div>

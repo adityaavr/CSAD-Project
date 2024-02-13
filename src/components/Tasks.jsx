@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import PropTypes from 'prop-types';
-import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
+import {collection, collectionGroup, doc, getDocs, query, updateDoc, where} from 'firebase/firestore';
 import { db } from '../firebaseConfig.js';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import log from "eslint-plugin-react/lib/util/log.js";
+import {Link} from "react-router-dom";
 
-const TaskItem = ({ task, onTaskClick, index }) => {
+const TaskItem = ({ task, onTaskClick, index, canEdit }) => {
     const [, drag] = useDrag({
         type: 'TASK',
         item: { task, id: task.id, index },
+        canDrag: canEdit,
     });
 
     console.log(`Task ID: ${task.id}`);
@@ -34,7 +35,7 @@ const TaskItem = ({ task, onTaskClick, index }) => {
 
     return (
         <div
-            ref={drag}
+            ref={canEdit ? drag : null}
             className={`mb-4 p-2 rounded ${getColorClass()}`}
             onClick={() => onTaskClick(task)}
         >
@@ -70,54 +71,86 @@ const Tasks = () => {
     const [enlargedTask, setEnlargedTask] = useState(null);
     const [editedTask, setEditedTask] = useState(null);
     const [loading, setLoading] = useState(true);
+    const auth = getAuth();
 
     useEffect(() => {
         const fetchTasks = async () => {
             try {
                 console.log('Fetching tasks...');
                 const auth = getAuth();
-                const unsubscribe = onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        const userId = user.uid;
-                        const userProjectsCollectionRef = collection(db, `projects/${userId}/projects`);
-                        const userProjectsSnapshot = await getDocs(userProjectsCollectionRef);
+                const user = auth.currentUser;
+                if (!user) {
+                    console.error("User not authenticated");
+                    setLoading(false);
+                    return;
+                }
+                const userId = user.uid;
 
-                        const allTasks = [];
-                        for (const projectDoc of userProjectsSnapshot.docs) {
-                            const projectId = projectDoc.id;
-                            const userTasksCollectionRef = collection(db, `projects/${userId}/projects/${projectId}/tasks`);
-                            const userTasksSnapshot = await getDocs(userTasksCollectionRef);
+                // Fetch owned projects
+                const ownedProjectsRef = collection(db, `projects/${userId}/projects`);
+                const ownedProjectsSnapshot = await getDocs(ownedProjectsRef);
 
-                            userTasksSnapshot.forEach((taskDoc) => {
-                                const taskData = taskDoc.data();
-                                allTasks.push({ ...taskData, id: taskDoc.id }); // Include the Firestore document ID
-                            });
-                        }
+                let allProjects = ownedProjectsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), owner: userId }));
 
-                        console.log('Tasks fetched successfully:', allTasks);
+                // Fetch projects where the user is a collaborator
+                const allProjectsRef = collectionGroup(db, "projects");
+                const collaboratorProjectsQuery = query(allProjectsRef, where("collaborators", "array-contains", userId));
+                const collaboratorProjectsSnapshot = await getDocs(collaboratorProjectsQuery);
 
-                        // Initialize state with categorized tasks
-                        const categorizedTasks = taskCategories.map((category) => {
-                            const tasksInCategory = allTasks.filter((task) => task.status === category.status);
-                            return { status: category.status, tasks: tasksInCategory };
-                        });
-
-                        console.log('Categorized tasks:', categorizedTasks);
-
-                        setTaskData(categorizedTasks);
-                        setTimeout(() => setLoading(false), 1000);
+                collaboratorProjectsSnapshot.forEach(doc => {
+                    if (!allProjects.find(project => project.id === doc.id)) {
+                        allProjects.push({ id: doc.id, ...doc.data(), owner: doc.ref.parent.parent.id }); // Assuming parent of 'projects' collection is the user document
                     }
                 });
 
-                return () => unsubscribe();
+                let allTasks = [];
+                for (const project of allProjects) {
+                    const projectId = project.id;
+                    const projectOwnerId = project.owner;
+
+                    const tasksRef = collection(db, `projects/${projectOwnerId}/projects/${projectId}/tasks`);
+                    const tasksSnapshot = await getDocs(tasksRef);
+
+                    tasksSnapshot.forEach((doc) => {
+                        allTasks.push({
+                            ...doc.data(),
+                            id: doc.id,
+                            project: project.name,
+                            projectId: projectId,
+                            projectOwnerId, // Include the project owner's ID in each task
+                            canEdit: userId === projectOwnerId || project.collaborators?.includes(userId)
+                        });
+                    });
+                }
+
+                console.log('Tasks fetched successfully:', allTasks);
+
+                // Initialize state with categorized tasks
+                const categorizedTasks = taskCategories.map((category) => {
+                    const tasksInCategory = allTasks.filter((task) => task.status === category.status);
+                    return { status: category.status, tasks: tasksInCategory };
+                });
+
+                console.log('Categorized tasks:', categorizedTasks);
+
+                setTaskData(categorizedTasks);
+                setLoading(false);
             } catch (error) {
                 console.error('Error fetching tasks:', error);
                 setLoading(false);
             }
         };
 
-        fetchTasks();
-    }, []);
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setLoading(true);
+                fetchTasks(user.uid).finally(() => setLoading(false));
+            }
+        });
+
+        return () => unsubscribe();
+    }, [auth]);
+
 
     useEffect(() => {
         console.log('Task data updated:', taskData);
@@ -138,36 +171,23 @@ const Tasks = () => {
     };
 
     const handleSaveEdit = async () => {
-        console.log('Edited Task Data:', editedTask);
-        handleCloseEnlargedTask();
-
-        const auth = getAuth();
-        const user = auth.currentUser;
-        if (!user) {
-            console.error("User not authenticated");
-            return;
-        }
-        const userId = user.uid;
-
         try {
-            // Find the project that contains the task
-            const projectId = await findProjectIdForTask(editedTask.id, userId);
-            if (!projectId) {
-                throw new Error("Project not found for the edited task");
-            }
+            if (!editedTask.canEdit) throw new Error("User does not have permission to edit this task");
 
-            // Update the task in Firebase
-            const taskRef = doc(db, `projects/${userId}/projects/${projectId}/tasks`, editedTask.id);
+            const taskRef = doc(db, `projects/${editedTask.projectOwnerId}/projects/${editedTask.projectId}/tasks`, editedTask.id);
             await updateDoc(taskRef, { ...editedTask });
-
-            // Optimistically update the UI
-            updateTaskInLocalState(editedTask);
-
             console.log('Task updated successfully in Firestore');
+
+            updateTaskInLocalState(editedTask);
         } catch (error) {
             console.error('Error updating task:', error);
+        } finally {
+            handleCloseEnlargedTask(); // Ensure this is called to close the modal irrespective of the outcome
         }
     };
+
+
+
 
 // Function to update a task in the local state
     const updateTaskInLocalState = (updatedTask) => {
@@ -202,39 +222,20 @@ const Tasks = () => {
         document.getElementById('enlargedTaskModal').close();
     };
 
-    const moveTask = async (taskId, fromCategoryStatus, toCategoryStatus) => {
+    const moveTask = async (task, toCategoryStatus) => {
         try {
-            const auth = getAuth();
-            const user = auth.currentUser;
-            if (!user) {
-                console.error("User not authenticated");
-                return;
-            }
-            const userId = user.uid;
+            if (!task.canEdit) throw new Error("User does not have permission to move this task");
 
-            // Use the function to find the project ID for the task
-            const projectId = await findProjectIdForTask(taskId, userId);
-
-            if (!projectId) {
-                console.error("Project for task not found");
-                return;
-            }
-
-            // Now that you have the project ID, construct the path to the task document
-            const taskRef = doc(db, `projects/${userId}/projects/${projectId}/tasks`, taskId);
-
-            // Update the task's status
+            const taskRef = doc(db, `projects/${task.projectOwnerId}/projects/${task.projectId}/tasks`, task.id);
             await updateDoc(taskRef, { status: toCategoryStatus });
             console.log('Task status updated successfully in Firestore');
-            updateTaskStatusAndCategory(taskId, toCategoryStatus); // Update local state to reflect the change
 
-
-
-            // Update your local state as necessary
+            updateTaskStatusAndCategory(task.id, toCategoryStatus);
         } catch (error) {
             console.error('Error moving task:', error);
         }
     };
+
 
 
     async function findProjectIdForTask(taskId, userId) {
@@ -300,10 +301,9 @@ const Tasks = () => {
             accept: 'TASK',
             drop: async (item, monitor) => {
                 if (monitor.isOver()) {
-                    const fromCategoryStatus = item.task.status; // Assuming the dragged item includes its current status
-                    const toCategoryStatus = category.status; // The target category's status
-
-                    await moveTask(item.id, fromCategoryStatus, toCategoryStatus);
+                    const task = item.task; // Get the task object from the dragged item
+                    const toCategoryStatus = category.status;
+                    await moveTask(task, toCategoryStatus); // Pass the entire task object
                 }
             },
         });
@@ -377,7 +377,7 @@ const Tasks = () => {
                 </div>
                 {category.tasks.length > 0 ? (
                     category.tasks.map((task, taskIndex) => (
-                        <TaskItem key={task.id} task={task} onTaskClick={handleTaskItemClick} />
+                        <TaskItem key={task.id} task={task} onTaskClick={handleTaskItemClick} canEdit={task.canEdit} />
                     ))
                 ) : (
                     <div className="mt-4 p-2 border border-dashed border-gray-300 rounded">
@@ -388,87 +388,99 @@ const Tasks = () => {
         );
     };
 
+    const hasTasks = taskData.some(category => category.tasks.length > 0);
+
     return (
         <DndProvider backend={HTML5Backend}>
             <div>
-                {loading && (
+                {loading ? (
                     <div className="flex items-center justify-center min-h-screen">
                         <span className="loading loading-infinity loading-lg"></span>
                     </div>
-                )}
-
-                {!loading && (
+                ) : !hasTasks ? (
+                    <div className="flex justify-center items-center min-h-screen" style={{ transform: 'translateY(-10%)' }}>
+                        <div className="card w-96 bg-primary text-primary-content">
+                            <div className="card-body">
+                                <h2 className="card-title">No Tasks Found</h2>
+                                <p>Create a new task or project to get started.</p>
+                                <div className="card-actions justify-end">
+                                    <button className="btn"><Link to="/projects">Create Project</Link></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
                     <div className="flex justify-between p-4 gap-4">
                         {taskData.map((category, index) => (
-                            <TaskCategory key={index} category={category} index={index} />
+                            <TaskCategory key={index} category={category} onTaskClick={handleTaskItemClick} />
                         ))}
-
-                        {enlargedTask && (
-                            <dialog id="enlargedTaskModal" className="modal">
-                                <div className="modal-box">
-                                    <h2 className="text-lg font-bold mb-4">Edit Task</h2>
-                                    <div className={`rounded ${enlargedTask.bgColor} p-4`}>
-                                        <label className="form-control w-full max-w-xs">
-                                            <div className="label">
-                                                <span className="label-text">Task Name</span>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                name="name"
-                                                value={editedTask.name}
-                                                onChange={handleEditChange}
-                                                placeholder="Type here"
-                                                className="input input-bordered w-full max-w-xs"
-                                            />
-                                        </label>
-                                        <label className="form-control w-full max-w-xs">
-                                            <div className="label">
-                                                <span className="label-text">Project</span>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                name="project"
-                                                value={editedTask.project}
-                                                onChange={handleEditChange}
-                                                placeholder="Type here"
-                                                className="input input-bordered w-full max-w-xs"
-                                                disabled
-                                            />
-                                        </label>
-                                        <label className="form-control w-full max-w-xs">
-                                            <div className="label">
-                                                <span className="label-text">Status</span>
-                                            </div>
-                                            <select
-                                                name="status"
-                                                value={editedTask.status}
-                                                onChange={handleEditChange}
-                                                className="select select-bordered w-full max-w-xs"
-                                            >
-                                                <option className="text-error" value="To do">
-                                                    To do
-                                                </option>
-                                                <option className="text-warning" value="Doing">
-                                                    Doing
-                                                </option>
-                                                <option className="text-success" value="Done">
-                                                    Done
-                                                </option>
-                                            </select>
-                                        </label>
-                                        <div className="mt-2 space-x-2 space-y-3">
-                                            <button className="btn btn-primary" onClick={handleSaveEdit}>
-                                                Save
-                                            </button>
-                                            <button className="btn" onClick={handleCloseEnlargedTask}>
-                                                Close
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </dialog>
-                        )}
                     </div>
+                )}
+
+                {enlargedTask && (
+                    <dialog id="enlargedTaskModal" className="modal">
+                        <div className="modal-box">
+                            <h2 className="text-lg font-bold mb-4">Edit Task</h2>
+                            <div className={`rounded ${enlargedTask.bgColor} p-4`}>
+                                <label className="form-control w-full max-w-xs">
+                                    <div className="label">
+                                        <span className="label-text">Task Name</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="name"
+                                        value={editedTask.name}
+                                        onChange={handleEditChange}
+                                        placeholder="Type here"
+                                        className="input input-bordered w-full max-w-xs"
+                                    />
+                                </label>
+                                <label className="form-control w-full max-w-xs">
+                                    <div className="label">
+                                        <span className="label-text">Project</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="project"
+                                        value={editedTask.project}
+                                        onChange={handleEditChange}
+                                        placeholder="Type here"
+                                        className="input input-bordered w-full max-w-xs"
+                                        disabled
+                                    />
+                                </label>
+                                <label className="form-control w-full max-w-xs">
+                                    <div className="label">
+                                        <span className="label-text">Status</span>
+                                    </div>
+                                    <select
+                                        name="status"
+                                        value={editedTask.status}
+                                        onChange={handleEditChange}
+                                        className="select select-bordered w-full max-w-xs"
+                                    >
+                                        <option className="text-error" value="To do">
+                                            To do
+                                        </option>
+                                        <option className="text-warning" value="Doing">
+                                            Doing
+                                        </option>
+                                        <option className="text-success" value="Done">
+                                            Done
+                                        </option>
+                                    </select>
+                                </label>
+                                <div className="mt-2 space-x-2 space-y-3">
+                                    <button className="btn btn-primary" onClick={handleSaveEdit}>
+                                        Save
+                                    </button>
+                                    <button className="btn" onClick={handleCloseEnlargedTask}>
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </dialog>
                 )}
             </div>
         </DndProvider>

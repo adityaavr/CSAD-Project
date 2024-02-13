@@ -8,7 +8,7 @@ import "gantt-task-react/dist/index.css";
 import 'tailwindcss/tailwind.css';
 import 'daisyui/dist/full.css';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import {collection, onSnapshot} from 'firebase/firestore';
+import {collection, collectionGroup, getDocs, query, where} from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 import Tasks from "./Tasks.jsx";
 import {Link} from "react-router-dom";
@@ -21,48 +21,62 @@ const GanttChart = () => {
 
     useEffect(() => {
         const auth = getAuth();
-        onAuthStateChanged(auth, (user) => {
+        onAuthStateChanged(auth, async (user) => {
             if (user) {
-                const unsubscribe = onSnapshot(collection(db, `projects/${user.uid}/projects`), (snapshot) => {
-                    const ganttData = [];
-                    snapshot.docs.forEach(doc => {
-                        const project = doc.data();
-                        const projectId = doc.id;
+                setLoading(true);
 
-                        const sortedTasks = project.tasks.map((task, index) => ({
-                            ...task,
-                            start: task.startDate instanceof Date ? task.startDate : new Date(task.startDate),
-                            end: task.endDate instanceof Date ? task.endDate : new Date(task.endDate),
-                            id: `${projectId}-task-${index}`, // Generate unique task IDs
-                        })).sort((a, b) => a.start - b.start);
+                // Fetch owned projects
+                const ownedProjectsRef = collection(db, `projects/${user.uid}/projects`);
+                const ownedProjectsSnap = await getDocs(ownedProjectsRef);
 
-                        // Set dependencies based on task order
-                        sortedTasks.forEach((task, index) => {
-                            if (index > 0) { // Skip the first task as it has no dependencies
-                                task.dependencies = [sortedTasks[index - 1].id];
-                            }
-                        });
+                let allProjects = ownedProjectsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
 
-                        // Add project and its tasks to ganttData
-                        ganttData.push({
-                            start: sortedTasks[0]?.start || new Date(),
-                            end: sortedTasks[sortedTasks.length - 1]?.end || new Date(),
-                            name: project.name,
-                            id: projectId,
-                            progress: project.progress || 0,
-                            type: "project",
-                            hideChildren: false
-                        });
+                // Fetch projects where the user is a collaborator
+                const collaboratorProjectsSnap = await getDocs(query(collectionGroup(db, "projects"), where("collaborators", "array-contains", user.uid)));
 
-                        ganttData.push(...sortedTasks);
-                    });
-                    setTasks(ganttData);
-                    setLoading(false);
+                collaboratorProjectsSnap.forEach(doc => {
+                    if (!allProjects.some(p => p.id === doc.id)) {
+                        allProjects.push({ ...doc.data(), id: doc.id });
+                    }
                 });
-                return () => unsubscribe();
+
+                const ganttData = [];
+                allProjects.forEach(project => {
+                    const projectId = project.id;
+                    const sortedTasks = project.tasks.map((task, index) => ({
+                        ...task,
+                        start: task.startDate instanceof Date ? task.startDate : new Date(task.startDate),
+                        end: task.endDate instanceof Date ? task.endDate : new Date(task.endDate),
+                        id: `${projectId}-task-${index}`, // Generate unique task IDs
+                    })).sort((a, b) => a.start - b.start);
+
+                    // Set dependencies based on task order
+                    sortedTasks.forEach((task, index) => {
+                        if (index > 0) { // Skip the first task as it has no dependencies
+                            task.dependencies = [sortedTasks[index - 1].id];
+                        }
+                    });
+
+                    // Add project and its tasks to ganttData
+                    ganttData.push({
+                        start: sortedTasks[0]?.start || new Date(),
+                        end: sortedTasks[sortedTasks.length - 1]?.end || new Date(),
+                        name: project.name,
+                        id: projectId,
+                        progress: project.progress || 0,
+                        type: "project",
+                        hideChildren: false
+                    });
+
+                    ganttData.push(...sortedTasks);
+                });
+
+                setTasks(ganttData);
+                setLoading(false);
             }
         });
     }, []);
+
 
     let columnWidth = 60;
     if (view === ViewMode.Month) {
