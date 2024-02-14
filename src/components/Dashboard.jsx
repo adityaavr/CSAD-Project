@@ -184,18 +184,21 @@ const Dashboard = () => {
 
     const remainingTime = (endDate) => {
         const now = new Date();
-        const timeDiff = endDate - now;
-        if (timeDiff < 0) {
-            return null; // Past date
+        const timeDiff = endDate.getTime() - now.getTime(); // Ensure you're comparing timestamps
+
+        // Initialize default values for time components
+        let time = { days: 0, hours: 0, minutes: 0, seconds: 0 };
+
+        if (timeDiff > 0) {
+            time.days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+            time.hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            time.minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+            time.seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
         }
 
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
-
-        return { days, hours, minutes, seconds };
+        return time;
     };
+
 
     useEffect(() => {
         // Only set up the interval if there are projects
@@ -293,11 +296,16 @@ const Dashboard = () => {
                                 </button>
                             </div>
                         </div>
-                        <div className="overflow-y-auto max-h-96 space-y-4">
+                        <div className="overflow-y-auto max-h-fit space-y-4">
                             {upcomingTasks.length > 0 ? (
                                 upcomingTasks.map((task, index) => (
                                     <div key={index} className="bg-base-200 p-3 rounded-lg flex justify-between items-center">
-                                        <span className="text-gray-700">{task.name}</span>
+                                        <div>
+                                            <span className="text-gray-700 font-bold">{task.name}</span>
+                                            <br />
+                                            {/* Display Project Name */}
+                                            <span className="text-gray-500 text-sm">Project: {task.projectName}</span>
+                                        </div>
                                         <span className={`badge ${task.priority === 'high' ? 'badge-error' : task.priority === 'medium' ? 'badge-warning' : 'badge-success'}`}>{task.priority}</span>
                                     </div>
                                 ))

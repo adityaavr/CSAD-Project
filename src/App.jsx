@@ -13,6 +13,7 @@ import ForgotPassword from "./components/ForgotPassword.jsx";
 import Profile from "./components/Profile.jsx";
 import Footer from "./components/Footer.jsx";
 import About from "./components/About.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 const App = () => {
     return (
@@ -28,35 +29,37 @@ const App = () => {
                 } />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/additional-details" element={<AdditionalDetails />} />
-                <Route path="/dashboard" element={
-                    <div className="flex flex-col h-1">
-                        <Navbar />
-                        <Dashboard />
-                    </div>} />
-                <Route path="/tasks" element={
-                    <div className="flex flex-col h-1">
-                        <Navbar />
-                        <Tasks />
-                    </div>
-                } />
-                <Route path="/ganttchart" element={
-                    <div className="flex flex-col h-1">
-                        <Navbar />
-                        <GanttChart />
-                    </div>
-                } />
-                <Route path="/projects" element={
-                    <div className="flex flex-col h-1">
-                        <Navbar />
-                        <Projects />
-                    </div>
-                } />
-                <Route path="/profile" element={
-                    <div className="flex flex-col h-1">
-                        <Navbar />
-                        <Profile />
-                    </div>
-                } />
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/profile" element={
+                        <div className="flex flex-col h-1">
+                            <Navbar />
+                            <Profile />
+                        </div>
+                    } />
+                    <Route path="/dashboard" element={
+                        <div className="flex flex-col h-1">
+                            <Navbar />
+                            <Dashboard />
+                        </div>} />
+                    <Route path="/tasks" element={
+                        <div className="flex flex-col h-1">
+                            <Navbar />
+                            <Tasks />
+                        </div>
+                    } />
+                    <Route path="/ganttchart" element={
+                        <div className="flex flex-col h-1">
+                            <Navbar />
+                            <GanttChart />
+                        </div>
+                    } />
+                    <Route path="/projects" element={
+                        <div className="flex flex-col h-1">
+                            <Navbar />
+                            <Projects />
+                        </div>
+                    } />
+                </Route>
                 {/* Fallback Route */}
                 {/*<Route path="*" element={<div>Not Found</div>} />*/}
             </Routes>
@@ -65,8 +68,3 @@ const App = () => {
 };
 
 export default App;
-
-
-
-
-

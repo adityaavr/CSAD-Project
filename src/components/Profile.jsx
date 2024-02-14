@@ -120,30 +120,46 @@ const Profile = () => {
                 </div>
                 {editMode && (
                     <div className="mt-4">
-                        <input
-                            type="text"
-                            name="name"
-                            value={userData.name}
-                            onChange={handleChange}
-                            placeholder="Name"
-                            className="input input-bordered w-full mb-2"
-                        />
-                        <input
-                            type="text"
-                            name="username"
-                            value={userData.username}
-                            onChange={handleChange}
-                            placeholder="Username"
-                            className="input input-bordered w-full mb-2"
-                        />
-                        <input
-                            type="email"
-                            name="email"
-                            value={userData.email}
-                            onChange={handleChange}
-                            placeholder="Email"
-                            className="input input-bordered w-full"
-                        />
+                        <div className="form-control">
+                            <div className="label">
+                                <span className="label-text">Name</span>
+                            </div>
+                            <input
+                                type="text"
+                                name="name"
+                                value={userData.name}
+                                onChange={handleChange}
+                                placeholder="Name"
+                                className="input input-bordered w-full mb-2"
+                            />
+                        </div>
+                        <div className="form-control">
+                            <div className="label">
+                                <span className="label-text">Username</span>
+                            </div>
+                            <input
+                                type="text"
+                                name="username"
+                                value={userData.username}
+                                onChange={handleChange}
+                                placeholder="Username"
+                                className="input input-bordered w-full mb-2"
+                            />
+                        </div>
+                        <div className="form-control">
+                            <div className="label">
+                                <span className="label-text">Email</span>
+                            </div>
+                            <input
+                                type="email"
+                                name="email"
+                                value={userData.email}
+                                onChange={handleChange}
+                                placeholder="Email"
+                                className="input input-bordered w-full"
+                                disabled
+                            />
+                        </div>
                     </div>
                 )}
             </div>
