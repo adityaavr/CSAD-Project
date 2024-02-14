@@ -98,6 +98,7 @@ const Projects = () => {
                 collaborators: arrayUnion(userId)
             });
             console.log("Collaborator added successfully");
+            setShowAddCollaboratorsModal(false);
         } catch (error) {
             console.error("Error adding collaborator: ", error);
         }
@@ -113,6 +114,7 @@ const Projects = () => {
                 collaborators: arrayRemove(userId)
             });
             console.log("Collaborator removed successfully");
+            setShowCollaboratorsModal(false);
         } catch (error) {
             console.error("Error removing collaborator: ", error);
         }
@@ -463,9 +465,7 @@ const Projects = () => {
                                         <div key={taskIndex} className="p-4 rounded-lg shadow-sm bg-gray-50">
                                             <h3 className="text-lg font-medium">{task.name}</h3>
                                             <div className="mt-2 text-sm text-gray-600">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mr-2 ${task.priority}`}>
-                        {task.priority.toUpperCase()}
-                    </span>
+                                                <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold mr-2 ${task.priority}`}>{task.priority.toUpperCase()}</span>
                                                 <span>{task.startDate} to {task.endDate}</span>
                                             </div>
                                         </div>
@@ -473,10 +473,7 @@ const Projects = () => {
                                 </div>
                             </div>
                         ))}
-
                     </div>
-
-
                 </div>
             )}
             {showAddCollaboratorsModal && (

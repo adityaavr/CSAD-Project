@@ -57,14 +57,26 @@ const Dashboard = () => {
 
             // Calculate the latest end date for each project
             const projectsWithEndDate = allProjects.map(project => {
+                // Check if the current project is the "All Projects" option
+                if (project.id === 'all') {
+                    return project;
+                }
+
                 const projectTasks = allTasks.filter(task => task.projectId === project.id);
                 const latestEndDate = projectTasks.reduce((latest, currentTask) => {
                     const currentEndDate = new Date(currentTask.endDate);
                     return latest > currentEndDate ? latest : currentEndDate;
-                }, new Date(0)); // Start with the oldest possible date
+                }, new Date(0));
+
                 const timeLeft = remainingTime(latestEndDate);
-                return { ...project, latestEndDate, remainingTime: timeLeft };
-            });
+
+                // Include the project only if there's remaining time
+                if (timeLeft) {
+                    return { ...project, latestEndDate, remainingTime: timeLeft };
+                }
+                return null; // Indicate that the project should be filtered out
+            }).filter(project => project !== null); // Remove null entries representing past projects or projects without deadlines
+
 
             // Update state with fetched data
             setProjects([{ id: 'all', name: 'All Projects' }, ...projectsWithEndDate]);
@@ -184,7 +196,7 @@ const Dashboard = () => {
 
     const remainingTime = (endDate) => {
         const now = new Date();
-        const timeDiff = endDate.getTime() - now.getTime(); // Ensure you're comparing timestamps
+        const timeDiff = endDate.getTime() - now.getTime();
 
         // Initialize default values for time components
         let time = { days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -201,23 +213,29 @@ const Dashboard = () => {
 
 
     useEffect(() => {
-        // Only set up the interval if there are projects
         if (projects.length > 1) {
             const intervalId = setInterval(() => {
-                // Update the remaining time for each project
                 setProjects(currentProjects => currentProjects.map(project => {
+                    // Check if the current project is the "All Projects" option
+                    if (project.id === 'all') {
+                        return project; // Always return "All Projects" without modification
+                    }
+
                     if (project.latestEndDate) {
                         const updatedTime = remainingTime(new Date(project.latestEndDate));
-                        return { ...project, remainingTime: updatedTime };
+                        // Only update the project if it has an active countdown
+                        if (updatedTime) {
+                            return { ...project, remainingTime: updatedTime };
+                        }
                     }
-                    return project;
-                }));
+                    return project; // Return the project as is if no update is needed
+                }).filter(project => project.id === 'all' || project.remainingTime)); // Keep "All Projects" and projects with remaining time
             }, 1000);
 
-            // Clear the interval when the component unmounts or projects change
             return () => clearInterval(intervalId);
         }
-    }, [projects]); // Dependency on projects ensures this effect runs when projects update
+    }, [projects]);
+
 
     return (
         <div>
@@ -321,35 +339,49 @@ const Dashboard = () => {
                     <div className="card max-w-xl w-full bg-base-100 shadow-xl p-4">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-xl font-bold">Project Deadlines</h2>
+                            <div className="tooltip" data-tip="Project deadline countdowns." style={{ marginRight: "350px" }}>
+                                <button className="flex items-center">
+                                    <svg className="w-3.5 h-3.5 text-gray-500 hover:text-gray-900 cursor-pointer ms-1" aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                                        <path fill="currentColor" d="M10 .5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 10 .5Zm0 16a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm1-5.034V12a1 1 0 0 1-2 0v-1.418a1 1 0 0 1 1.038-.999 1.436 1.436 0 0 0 1.488-1.441 1.501 1.501 0 1 0-3-.116.986.986 0 0 1-1.037.961 1 1 0 0 1-.96-1.037A3.5 3.5 0 1 1 11 11.466Z"/>
+                                    </svg>
+                                </button>
+                            </div>
                         </div>
                         <div className="overflow-y-auto max-h-96" style={{ padding: "10px" }}>
-                            {projects.filter(project => project.id !== 'all').map((project, index) => (
-                                <div key={index} className="border rounded-box border-base-300 mb-4 p-4">
-                                    <div className="text-lg font-medium">{project.name}</div>
-                                    {project.latestEndDate && (
-                                        <div className="grid grid-flow-col gap-4 text-center mt-4">
-                                            <div className="stats shadow">
-                                                <div className="stat">
-                                                    <div className="stat-title">Days</div>
-                                                    <div className="stat-value text-3xl">{project.remainingTime.days}</div>
+                            {projects.map((project, index) => {
+                                if (project.id === 'all') return null;
+                                // Render countdown for the selected project or all projects if "All Projects" is selected
+                                if (selectedProject === 'all' || selectedProject === project.id) {
+                                    return (
+                                        <div key={index} className="border rounded-box border-base-300 mb-4 p-4">
+                                            <div className="text-lg font-medium">{project.name}</div>
+                                            {project.latestEndDate && (
+                                                <div className="grid grid-flow-col gap-4 text-center mt-4">
+                                                    <div className="stats shadow">
+                                                        <div className="stat">
+                                                            <div className="stat-title">Days</div>
+                                                            <div className="stat-value text-3xl">{project.remainingTime.days}</div>
+                                                        </div>
+                                                        <div className="stat">
+                                                            <div className="stat-title">Hours</div>
+                                                            <div className="stat-value text-3xl">{project.remainingTime.hours}</div>
+                                                        </div>
+                                                        <div className="stat">
+                                                            <div className="stat-title">Minutes</div>
+                                                            <div className="stat-value text-3xl">{project.remainingTime.minutes}</div>
+                                                        </div>
+                                                        <div className="stat">
+                                                            <div className="stat-title">Seconds</div>
+                                                            <div className="stat-value text-3xl">{project.remainingTime.seconds}</div>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div className="stat">
-                                                    <div className="stat-title">Hours</div>
-                                                    <div className="stat-value text-3xl">{project.remainingTime.hours}</div>
-                                                </div>
-                                                <div className="stat">
-                                                    <div className="stat-title">Minutes</div>
-                                                    <div className="stat-value text-3xl">{project.remainingTime.minutes}</div>
-                                                </div>
-                                                <div className="stat">
-                                                    <div className="stat-title">Seconds</div>
-                                                    <div className="stat-value text-3xl">{project.remainingTime.seconds}</div>
-                                                </div>
-                                            </div>
+                                            )}
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                    );
+                                }
+                                return null;
+                            })}
                         </div>
                     </div>
                 </div>
